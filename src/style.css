@@ -1,0 +1,8 @@
+@import "tailwindcss";
+@import 'tailwindcss-primeui';
+
+@layer base {
+  html {
+    font-size: 13px;
+  }
+}
