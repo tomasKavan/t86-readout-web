@@ -1,77 +1,21 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue'
+
 import { usePageTitle } from '../composables/usePageTitle'
-import { useDTFormatter } from '../composables/DateFormatter';
+import { useDTFormatter } from '../composables/DateFormatter'
+import { useMeasPointList } from '../services/MeasPointList'
+import { useMeasPointListGrouping } from '../composables/MeasPointListGrouping'
 
 const { setTitle } = usePageTitle()
 const { mdmd } = useDTFormatter()
 
-onMounted(() => {
-  setTitle('Měřící místa')
-})
+onMounted(() => { setTitle('Měřící místa') })
 
-const products = ref([{
-  id: 'S.EL.01.01',
-  name: 'Elektřina Byt 1',
-  mbusAddr: 1,
-  mbusSerial: '2543781',
-  metricCnt: 1,
-  lastRead: new Date(),
-  autoReadoutEnabled: false,
-  subject: 'ele',
-  subjectSpec: null
-}])
+const { measPoints } = useMeasPointList()
 
-const selProducts = ref([])
+const selMeasPoints = ref([])
 
-const groupPresets = {
-  'ele': {
-    icon: 'bolt',
-    name: 'Elektřina'
-  },
-  'wat': {
-    'hot': {
-      icon: 'wave-pulse',
-      name: 'Teplá voda'
-    },
-    'cold': {
-      icon: 'wave-pulse',
-      name: 'Studená voda'
-    }
-  }, 
-  'hth': {
-    icon: 'sun',
-    name: 'Teplo'
-  },
-  'gas': {
-    icon: 'sun',
-    name: 'Plyn'
-  },
-  'env': {
-    icon: 'sparkles',
-    name: 'Prostředí'
-  },
-  'cln': {
-    icon: 'wrench',
-    name: 'Úklid'
-  }
-}
-
-const groupPresetSelect = (data: any) => {
-  let pres = groupPresets[data.subject]
-  if (data.subjectSpec) {
-    pres = pres[data.subjectSpec]
-  }
-  return pres
-}
-
-const groupIcon = (data: any) => {
-  return 'pi-' + groupPresetSelect(data).icon
-}
-
-const groupName = (data: any) => {
-  return groupPresetSelect(data).name
-}
+const { groupIcon, groupLabel } = useMeasPointListGrouping()
 
 </script>
 
@@ -79,24 +23,29 @@ const groupName = (data: any) => {
   <div class="flex flex-row justify-end pb-8 gap-3">
     <Button label="Zapnout vybrané" size="small" outined />
     <Button label="Zapnout všechny" size="small" />
+    <Button icon="pi pi-plus" size="small" />
   </div>
 
   <DataTable 
-    :value="products" 
+    :value="measPoints" 
     rowGroupMode="subheader"
     :groupRowsBy="['subject', 'subjectSpec']" 
     size="small" 
     stripedRows
     tableStyle="min-width: 50rem"
     dataKey="id"
-    v-model:selection="selProducts"
+    v-model:selection="selMeasPoints"
   >
     <Column selectionMode="multiple" headerStyle="width: 3rem"></Column>
     <Column field="id" header="ID" :style="{ width: '8rem' }"></Column>
     <Column field="name" header="Název"></Column>
     <Column field="mbusAddr" header="MBus" :style="{ width: '4.5rem' }"></Column>
     <Column field="mbusSerial" header="S/N" :style="{ width: '5.5rem' }"></Column>
-    <Column field="metricCnt" header="Metrik" :style="{ width: '4.5rem' }"></Column>
+    <Column header="Metrik" :style="{ width: '4.5rem' }">
+      <template #body="{ data }">
+        {{ data.metrics.length || 0 }}
+      </template>
+    </Column>
     <Column header="Naposledy vyčteno" :style="{ width: '11rem' }">
       <template #body="{ data }">
         {{ data.lastRead ? mdmd(data.lastRead) : '' }}
@@ -120,10 +69,10 @@ const groupName = (data: any) => {
       </template>
     </Column>
 
-    <template #groupheader="sp">
+    <template #groupheader="{ data }">
       <div class="flex flex-row font-semibold py-2">
-        <i class="pi pr-4 text-primary" style="font-size: 1.4rem;" :class="groupIcon(sp.data)" />
-        <h3>{{groupName(sp.data)}}</h3>
+        <i :class="'pi-' + groupIcon(data)" class="pi pr-4 text-primary" style="font-size: 1.4rem;" />
+        <h3>{{ groupLabel(data) }}</h3>
       </div>
     </template>
   </DataTable>

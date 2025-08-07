@@ -1,0 +1,52 @@
+fragment MetricMpl on Metric {
+  id
+  type
+  func
+  hasPhysicalDisplay
+  mbusValueRecordId
+  mbusDecimalShift
+  createdUTCTime
+  updatedUTCTime
+}
+
+fragment ServiceEventMpl on ServiceEvent {
+  id
+  type
+  occuredUTCTime
+  oldMbusAddr
+  oldMbusSerial
+  oldMeterManufacturer
+  oldMeterType
+  comments
+  createdUTCTime
+  updatedUTCTime
+}
+
+fragment MeasPointMpl on MeasPoint {
+  id
+    name
+    roomNo
+    instDetails
+    notes
+    subject
+    subjectSpec
+    mbusAddr
+    mbusSerial
+    meterManufacturer
+    meterType
+    autoReadoutEnabled
+    metrics {
+      ...MetricMpl
+    }
+    serviceEvents {
+      ...ServiceEventMpl
+    }
+    createdUTCTime
+    updatedUTCTime
+}
+
+query MeasPoints {
+  measPoints {
+    ...MeasPointMpl
+  }
+}

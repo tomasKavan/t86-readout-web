@@ -8,4 +8,14 @@ export default defineConfig({
     vue(),
     tailwindcss()
   ],
+  server: {
+    proxy: {
+      '/graphql': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+        // optional if you want to rewrite the path (not needed here):
+        // rewrite: (path) => path.replace(/^\/graphql/, '/graphql')
+      }
+    }
+  }
 })

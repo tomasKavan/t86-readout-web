@@ -11,8 +11,8 @@ import App from './App.vue'
 import './style.css'
 import 'primeicons/primeicons.css'
 
-//import { ApolloClients } from '@vue/apollo-composable';
-//import { apolloClient } from './apollo/client';
+import { ApolloClients } from '@vue/apollo-composable';
+import { apolloClient } from './apolloSession';
 
 const app = createApp({
   setup: () => () => h(App),
@@ -31,9 +31,9 @@ app.use(PrimeVue, {
   ripple: true
 })
 
-//app.provide(ApolloClients, {
-//  default: apolloClient,
-//});
+app.provide(ApolloClients, {
+ default: apolloClient,
+});
 
 app.component('Tabs', Tabs)
 app.component('TabList', TabList)
