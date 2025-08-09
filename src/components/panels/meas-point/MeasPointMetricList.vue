@@ -1,7 +1,5 @@
 <script setup lang="ts">
-import { useDTFormatter } from '../../../composables/DateFormatter'
-
-const { mdmd } = useDTFormatter()
+import { mdmd } from '../../../utils/DateFormatter'
 
 const { metrics } = defineProps(['metrics'])
 const emit = defineEmits<{
@@ -34,12 +32,12 @@ const metricFunc = [{
     <Column field="id" header="ID" :style="{ width: '2rem' }"></Column>
     <Column header="Typ" :style="{ width: '5rem' }">
       <template #body="{ data }">
-        {{ data.type ? metricTypes.find((i: any) => i.id === data.type).label : '' }}
+        {{ data.type ? metricTypes.find((i: any) => i.id === data.type)?.label : '' }}
       </template>
     </Column>
     <Column header="Funkce" :style="{ width: '5rem' }">
       <template #body="{ data }">
-        {{ data.func ? metricFunc.find((i: any) => i.id === data.func).label : '' }}
+        {{ data.func ? metricFunc.find((i: any) => i.id === data.func)?.label : '' }}
       </template>
     </Column>
     <Column header="Záz/Pos" :style="{ width: '4rem' }">
@@ -71,8 +69,8 @@ const metricFunc = [{
       <template #body="{ data }">
         <div class="flex flex-row justify-end w-full">
           <i class="pi pi-pen-to-square text-primary cursor-pointer pr-2" @click="emit('navToMetricReadout', data.id)"></i>
-          <i class="pi pi-sort-alt text-primary cursor-pointer pr-2" @click="emit('navToMetricCorrection', data.id)"></i>
-          <i class="pi pi-times text-red-600 cursor-pointer pr-2" @click="emit('initMetricDelete', data.id)"></i>
+          <i class="pi pi-sort-alt text-primary cursor-pointer pr-4" @click="emit('navToMetricCorrection', data.id)"></i>
+          <i class="pi pi-trash text-red-600 cursor-pointer pr-2" @click="emit('initMetricDelete', data.id)"></i>
         </div>
       </template>
     </Column>

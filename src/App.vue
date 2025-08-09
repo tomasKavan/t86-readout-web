@@ -15,6 +15,10 @@ const menu = ref([{
   icon: 'gauge',
   path: '/meas-points'
 }, {
+  label: 'Odečíst',
+  icon: 'pen-to-square',
+  path: '/group-readout'
+}, {
   label: 'Grafy',
   icon: 'chart-bar',
   path: '/graphs'
@@ -31,8 +35,8 @@ const menu = ref([{
 </script>
 
 <template>
-  <div class="min-h-screen flex relative lg:static bg-surface-50 dark:bg-surface-950">
-    <div id="app-sidebar-6" class="h-screen hidden lg:block shrink-0 absolute lg:static left-0 top-0 z-10 select-none w-[5rem] bg-primary animate-duration-300 animate-ease-in-out">
+  <div class="min-h-screen flex relative lg:static bg-surface-50 dark:bg-surface-950 content-stretch">
+    <div id="app-sidebar-6" class="hidden lg:block shrink-0 absolute lg:static left-0 top-0 z-10 select-none w-[5rem] bg-primary animate-duration-300 animate-ease-in-out">
       <div class="flex flex-col h-full">
         <div class="flex items-center justify-center shrink-0 p-4">
           <svg xmlns="http://www.w3.org/2000/svg" width="33" height="32" viewBox="0 0 33 32" fill="none">

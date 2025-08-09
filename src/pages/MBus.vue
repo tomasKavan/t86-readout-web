@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { usePageTitle } from '../composables/usePageTitle'
-import { useDTFormatter } from '../composables/DateFormatter'
+import { tels } from '../utils/DateFormatter'
 
 const { setTitle } = usePageTitle()
-const { tels } = useDTFormatter()
 
 onMounted(() => {
   setTitle('Přímé dotazování M-Bus sběrnice')

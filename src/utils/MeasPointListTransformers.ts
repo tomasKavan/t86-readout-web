@@ -1,15 +1,4 @@
-import { type MeasPointMplFragment, MeasPointSubject, MeasPointSubjectSpecifier } from "../graphql/types/graphql";
-
-// type GroupPresetLeaf = {
-//   name: string,
-//   icon: string
-// }
-
-// type GroupPresetDef = {
-//   [K in MeasPointSubject]: K extends GroupPresetLeaf
-//     ? GroupPresetLeaf
-//     : K extends
-// }
+import { type MeasPointMplFragment, MeasPointSubject, MeasPointSubjectSpecifier } from '../graphql/types/graphql'
 
 const groupPresets = {
   [MeasPointSubject.Electricity]: {

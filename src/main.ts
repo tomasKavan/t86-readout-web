@@ -2,7 +2,7 @@ import { createApp, h } from 'vue'
 import PrimeVue from 'primevue/config'
 import Aura from '@primeuix/themes/aura'
 
-import { Button, Card, Column, DataTable, InputNumber, InputText, Select, Tab, TabList, TabPanel, TabPanels, Tabs, Textarea, Toolbar } from 'primevue'
+import { Button, Card, Column, DataTable, DatePicker, InputNumber, InputText, MultiSelect, Panel, Select, Tab, TabList, TabPanel, TabPanels, Tabs, Textarea, ToggleSwitch, Toolbar, Tooltip } from 'primevue'
 import StyleClass from 'primevue/styleclass'
 
 import { router } from './router'
@@ -35,6 +35,10 @@ app.provide(ApolloClients, {
  default: apolloClient,
 });
 
+app.component('MultiSelect', MultiSelect)
+app.component('DatePicker', DatePicker)
+app.component('Panel', Panel)
+app.component('ToggleSwitch', ToggleSwitch)
 app.component('Tabs', Tabs)
 app.component('TabList', TabList)
 app.component('Tab', Tab)
@@ -51,5 +55,6 @@ app.component('Toolbar', Toolbar)
 app.component('InputNumber', InputNumber)
 
 app.directive('styleclass', StyleClass)
+app.directive('tooltip', Tooltip)
 
 app.mount('#app')

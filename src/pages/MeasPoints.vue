@@ -2,12 +2,11 @@
 import { onMounted, ref } from 'vue'
 
 import { usePageTitle } from '../composables/usePageTitle'
-import { useDTFormatter } from '../composables/DateFormatter'
+import { mdmd } from '../utils/DateFormatter'
 import { useMeasPointList } from '../services/MeasPointList'
-import { useMeasPointListGrouping } from '../composables/MeasPointListGrouping'
+import { useMeasPointListGrouping } from '../utils/MeasPointListTransformers'
 
 const { setTitle } = usePageTitle()
-const { mdmd } = useDTFormatter()
 
 onMounted(() => { setTitle('Měřící místa') })
 
@@ -20,9 +19,15 @@ const { groupIcon, groupLabel } = useMeasPointListGrouping()
 </script>
 
 <template>
-  <div class="flex flex-row justify-end pb-8 gap-3">
-    <Button label="Zapnout vybrané" size="small" outined />
-    <Button label="Zapnout všechny" size="small" />
+  <div class="flex flex-row justify-between pb-8 gap-3">
+    <div class="flex flex-row pr-5 h-full pt-2">
+      <ToggleSwitch id="autoReadAll">
+        <template #handle>
+          <i class="pi pi-sync text-primary" style="font-size: 0.65rem;"></i>
+        </template>
+      </ToggleSwitch>
+      <label for="autoReadAll" class="font-medium text-surface-900 dark:text-surface-0 pr-4 pl-2">Automatické vyčítání</label>
+    </div>
     <Button icon="pi pi-plus" size="small" />
   </div>
 
@@ -36,7 +41,14 @@ const { groupIcon, groupLabel } = useMeasPointListGrouping()
     dataKey="id"
     v-model:selection="selMeasPoints"
   >
-    <Column selectionMode="multiple" headerStyle="width: 3rem"></Column>
+    <Column bodyClass="text-center" :style="{ width: '2rem' }">
+      <template #body="{ data }">
+        <div class="flex justify-end items-center h-full">
+          <i v-if="data.autoReadoutEnabled" class="pi pi-sync text-primary" v-tooltip="'Automatické výčítání zapnuto'"></i>
+          <i v-else class="pi pi-sync text-red-800" v-tooltip="'Automatické výčítání vypnuto'"></i>
+        </div>
+      </template>
+    </Column>
     <Column field="id" header="ID" :style="{ width: '8rem' }"></Column>
     <Column field="name" header="Název"></Column>
     <Column field="mbusAddr" header="MBus" :style="{ width: '4.5rem' }"></Column>
@@ -49,14 +61,6 @@ const { groupIcon, groupLabel } = useMeasPointListGrouping()
     <Column header="Naposledy vyčteno" :style="{ width: '11rem' }">
       <template #body="{ data }">
         {{ data.lastRead ? mdmd(data.lastRead) : '' }}
-      </template>
-    </Column>
-    <Column header="Vyčítání" bodyClass="text-center" :style="{ width: '4.95rem' }">
-      <template #body="{ data }">
-        <div class="flex justify-end items-center h-full">
-          <i v-if="data.autoReadoutEnabled" class="pi pi-check text-primary"></i>
-          <i v-else class="pi pi-times text-red-800"></i>
-        </div>
       </template>
     </Column>
     <Column header="" :style="{ width: '3rem' }">

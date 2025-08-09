@@ -1,4 +1,4 @@
-const mdmd = (value: string | Date): string => {
+export const mdmd = (value: string | Date): string => {
   if (!value) return '';
   const date = typeof value === 'string' ? new Date(value) : value;
   return new Intl.DateTimeFormat(navigator.language, {
@@ -7,18 +7,20 @@ const mdmd = (value: string | Date): string => {
   }).format(date);
 }
 
-const tels = (value: string | Date): string => {
+export const mdnt = (value: string | Date): string => {
+  if (!value) return '';
+  const date = typeof value === 'string' ? new Date(value) : value;
+  return new Intl.DateTimeFormat(navigator.language, {
+    dateStyle: 'medium',
+    timeStyle: undefined,
+  }).format(date);
+}
+
+export const tels = (value: string | Date): string => {
   if (!value) return '';
   const date = typeof value === 'string' ? new Date(value) : value;
   return new Intl.DateTimeFormat(navigator.language, {
     dateStyle: undefined,
     timeStyle: 'medium',
   }).format(date);
-}
-
-export function useDTFormatter() {
-  return {
-    mdmd,
-    tels
-  }
 }
