@@ -1,0 +1,22 @@
+fragment SerieEntryFrg on SerieEntry {
+  metricId
+  value
+  timestampUTC
+}
+
+fragment SerieFrg on Serie {
+  fromUTC
+  toUTC
+  issuedAtUTCtimestamp
+  sampling
+  timeZone
+  entries {
+    ...SerieEntryFrg
+  }
+}
+
+query Serie($params: QuerySerie!) {
+  serie(params: $params) {
+    ...SerieFrg
+  }  
+}

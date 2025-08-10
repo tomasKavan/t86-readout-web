@@ -1,0 +1,28 @@
+fragment MBusSlave on MBusSlave {
+  manufacturer
+  medium
+  primaryAddress
+  records {
+    ...MBusRecord
+  }
+  serial
+  status
+  type
+}
+
+fragment MBusRecord on MBusRecord {
+  device
+  function
+  id
+  storageNumber
+  tariff
+  timestamp
+  unit
+  value
+}
+
+query Slaves($primaryAddr: Int!) {
+  slaves(primaryAddr: $primaryAddr) {
+    ...MBusSlave
+  }
+}

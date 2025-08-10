@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { usePageTitle } from '../composables/usePageTitle'
-import { tels } from '../utils/DateFormatter'
+import { useMBusQuery } from '../services/MBus'
 
 const { setTitle } = usePageTitle()
 
@@ -9,17 +9,16 @@ onMounted(() => {
   setTitle('Přímé dotazování M-Bus sběrnice')
 })
 
+const { response, query, loading, error } = useMBusQuery()
+
 const addr = ref<number | null>(null)
-const queryActive = ref<boolean>(false)
-const response = ref(null)
-const error = ref<null | Error>(null)
 
 const formatResponse = computed<string>(() => {
   if (error.value) return error.value.toString()
   if (!response.value ) return '\u00A0'
 
   try { 
-    return JSON.stringify(response.value, null, '\n')
+    return JSON.stringify(response.value, null, 2)
   } catch (e: any) {
     if (e instanceof Error) {
       return e.toString()
@@ -31,8 +30,8 @@ const formatResponse = computed<string>(() => {
   }
 })
 
-const makeQuery = () => {
-  console.log(`Query address ${addr.value}`)
+const makeQuery = async () => {
+  await query(addr.value || 0)
 }
 
 </script>
@@ -51,21 +50,19 @@ const makeQuery = () => {
       />
       <Button 
         @click="makeQuery" 
-        :disabled="queryActive || typeof addr !== 'number'" 
+        :disabled="loading || typeof addr !== 'number'" 
         size="small" 
         label="Vyčíst" 
         class="ml-3" 
       />
-      <Button v-if="queryActive" size="small" label="Zrušit" class="ml-3" severity="warn" />
+      <Button v-if="loading" size="small" label="Zrušit" class="ml-3" severity="warn" />
     </template>
 
     <template #end>
-      <i v-if="queryActive" class="pi pi-spin pi-spinner" style="font-size: 1.4rem"></i>
-      <div v-if="!queryActive && response" class="">Doba čtení: {{tels(responseTime)}}</div>
+      <i v-if="loading" class="pi pi-spin pi-spinner" style="font-size: 1.4rem"></i>
+      <!-- <div v-if="!loading && response" class="">Doba čtení: {{tels(responseTime)}}</div> -->
     </template>
   </Toolbar>
 
-  <div class="border border-dashed rounded-md p-4 font-mono text-sm bg-surface-50 border-surface-200 dark:border-surface-700 dark:bg-surface-800">
-    {{ formatResponse }}
-  </div>
+  <pre class="border border-dashed rounded-md p-4 font-mono text-sm bg-surface-50 border-surface-200 dark:border-surface-700 dark:bg-surface-800">{{ formatResponse }}</pre>
 </template>
