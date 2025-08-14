@@ -1,0 +1,5 @@
+mutation ChangeMeter($data: ChangeMeter!, $changeMeterId: ID!, $force: Boolean!) {
+  changeMeter(data: $data, id: $changeMeterId, force: $force) {
+    ...MeasPointDetail   
+  }
+}

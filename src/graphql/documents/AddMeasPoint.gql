@@ -1,0 +1,5 @@
+mutation AddMeasPoint($data: AddMeasPoint!) {
+  addMeasPoint(data: $data) {
+    ...MeasPointDetail
+  }
+}

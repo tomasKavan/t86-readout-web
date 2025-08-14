@@ -1,64 +1,49 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { 
-  MeasPointSubject, 
-  MetricType, 
-  ServiceEventType 
-} from '../../../graphql/types/graphql'
+import { computed, ref } from 'vue'
 import { 
-  getUnit, 
-  names as metricNames 
-} from '../../../utils/MetricTypeTransformers'
+  type MeasPointDetailCorrectionFragment,
+  MeasPointDetailCorrectionFragmentDoc,
+  type MeasPointDetailMetricFragment,
+  type MeasPointDetailServiceEventFragment,
+  type MeasPointSubject
+} from '../../../graphql/types/graphql'
+import { getUnit, getTypeLabel } from '../../../utils/MetricTypeTransformers'
 import { mdmd, mdnt } from '../../../utils/DateFormatter'
+import { useFragment } from '../../../graphql/types'
 
 export type Filter = {
-  from: Date | null,
-  to: Date | null,
   metricIds: number[],
   serviceEventIds: number[]
 }
 
-type MetricMin = {
-  id: number,
-  type: MetricType
-}
-
 type Opt = {
-  id: number,
+  id: string,
   label: string
 }
 
-type ServiceEventMin = {
-  id: number,
-  type: ServiceEventType,
-  occuredUTCTime: Date
-}
+const filter = ref<Filter>({
+  metricIds: [],
+  serviceEventIds: []
+})
 
-type CorrectionMin = {
-  id: number,
-  serviceEvent: ServiceEventMin,
-  value: number,
-  oldMeterEndValue: number | null,
-  newMeterStartValue: number | null,
-  oldMeterHasPhysicalDisplay: boolean | null
-  oldMeterMbusValueRecordId: number | null,
-  oldMeterMbusDecimalShift: number | null,
-  metric: MetricMin
-}
-
-const filter = defineModel<Filter>('filter', { required: true })
-
-const { corrections, serviceEvents, metrics, loading, measPointSubject} = defineProps<{
-  corrections: CorrectionMin[],
-  serviceEvents: ServiceEventMin[],
-  metrics: MetricMin[],
-  loading: boolean,
+const { serviceEvents, metrics, measPointSubject} = defineProps<{
+  serviceEvents: MeasPointDetailServiceEventFragment[],
+  metrics: MeasPointDetailMetricFragment[],
   measPointSubject: MeasPointSubject
 }>()
 
+const corrections = computed<MeasPointDetailCorrectionFragment[]>(() => {
+  let out: MeasPointDetailCorrectionFragment[] = []
+  for (const se of serviceEvents) {
+    const masked = se.corrections ?? []
+    out = [...out, ...masked.map(i => useFragment(MeasPointDetailCorrectionFragmentDoc, i))]
+  }
+  return out
+})
+
 const metricOpts = computed<Opt[]>(() => {
   return metrics.map(m => {
-    return { id: m.id, label: metricNames[m.type] } as Opt
+    return { id: m.id, label: getTypeLabel(m.type) } as Opt
   })
 })
 
@@ -71,46 +56,11 @@ const serviceEventOpts = computed<Opt[]>(() => {
   })
 })
 
-type DatePicType = null | Date | Date[] | (null | Date)[]
-const dateRangeModel = computed<DatePicType>({
-  get: (): DatePicType => {
-    return [filter.value.from, filter.value.to]
-  },
-  set: (v: DatePicType) => {
-    if (v instanceof Date) {
-      filter.value.from = v
-      filter.value.to = null
-      return
-    }
-    if (v instanceof Array) {
-      filter.value.from = v[0] || null
-      filter.value.to = v[1] || null
-      return
-    }
-    filter.value.from = null
-    filter.value.to = null
-  } 
-
-})
-
 </script>
 
 <template>
   <div class="flex flex-row justify-between">
     <div class="flex flex-row gap-3 pt-3 pb-5">
-      <div class="flex flex-col w-70 ">
-        <label for="range" class="pb-1 font-light text-xs text-surface-700 dark:text-surface-0">Časové rozmezí</label>
-        <DatePicker 
-          name="range" 
-          selectionMode="range" 
-          showIcon 
-          fluid 
-          dateFormat="dd.mm.y" 
-          :showTime="true" 
-          v-model="dateRangeModel"
-          size="small"
-        />
-      </div>
       <div class="flex flex-col w-50">
         <label for="metrics" class="pb-1 font-light text-xs text-surface-700 dark:text-surface-0">Metriky</label>
         <MultiSelect 
@@ -174,10 +124,14 @@ const dateRangeModel = computed<DatePicType>({
         </template>
       </Column>
       <Column header="Detaily">
-        <template #body="{ data }">
+        <template #body>
           
         </template>
       </Column>
+
+      <template #empty>
+        <div class="text-surface-500 dark:text-surface-100">Toto měřící místo zatím nemá žádnou korekci.</div>
+      </template>
     </DataTable>
   </div>
 </template>

@@ -2,9 +2,11 @@ import { createApp, h } from 'vue'
 import PrimeVue from 'primevue/config'
 import Aura from '@primeuix/themes/aura'
 
-import { Button, Card, Column, DataTable, DatePicker, InputNumber, InputText, MultiSelect, Panel, Select, SelectButton, Tab, TabList, TabPanel, TabPanels, Tabs, Textarea, ToggleSwitch, Toolbar, Tooltip } from 'primevue'
+import { Button, Card, Column, ConfirmDialog, DataTable, DatePicker, Dialog, InputNumber, InputText, MultiSelect, Panel, Select, SelectButton, Tab, TabList, TabPanel, TabPanels, Tabs, Textarea, Toast, ToggleSwitch, Toolbar, Tooltip } from 'primevue'
 import Chart from 'primevue/chart'
 import StyleClass from 'primevue/styleclass'
+import ConfirmationService from 'primevue/confirmationservice'
+import ToastService from 'primevue/toastservice'
 
 import { router } from './router'
 import App from './App.vue'
@@ -36,6 +38,12 @@ app.provide(ApolloClients, {
  default: apolloClient,
 });
 
+app.use(ConfirmationService)
+app.use(ToastService)
+
+app.component('Toast', Toast)
+app.component('Dialog', Dialog)
+app.component('ConfirmDialog', ConfirmDialog)
 app.component('SelectButton', SelectButton)
 app.component('Chart', Chart)
 app.component('MultiSelect', MultiSelect)

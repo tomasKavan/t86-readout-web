@@ -1,17 +1,14 @@
 <script setup lang="ts">
+import type { MeasPointDetailServiceEventFragment } from '../../../graphql/types/graphql';
 import { mdmd } from '../../../utils/DateFormatter'
 
 const { serviceEvents } = defineProps<{
-  serviceEvents: any[]
+  serviceEvents: MeasPointDetailServiceEventFragment[]
 }>()
 const emit = defineEmits<{
   (e: 'initServiceEventRevert'): void,
-  (e: 'initServiceEventAdd'): void,
+  (e: 'initServiceEventAdd'): void
 }>()
-
-const showDetails = (se: any) => {
-
-}
 
 </script>
 
@@ -45,9 +42,8 @@ const showDetails = (se: any) => {
           <Button icon="pi pi-plus" variant="text" size="small" @click="emit('initServiceEventAdd')"></Button>
         </div>
       </template>
-      <template #body="{ data }">
+      <template #body>
         <div class="flex flex-row justify-end w-full">
-          <i class="pi pi-pen-to-square text-primary cursor-pointer pr-2" @click="showDetails(data)"></i>
         </div>
       </template>
     </Column>

@@ -1,0 +1,5 @@
+mutation RevertMeterChange($serviceEventId: ID!, $measPointId: ID!, $force: Boolean!) {
+  revertMeterChange(serviceEventId: $serviceEventId, measPointId: $measPointId, force: $force) {
+    ...MeasPointDetail
+  }
+}

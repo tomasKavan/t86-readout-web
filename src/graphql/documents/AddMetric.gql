@@ -1,0 +1,5 @@
+mutation AddMetric($data: AddMetric!, $measPointId: ID!) {
+  addMetric(data: $data, measPointId: $measPointId) {
+    ...MeasPointDetailMetric
+  }
+}

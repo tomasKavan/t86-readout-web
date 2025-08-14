@@ -1,8 +1,21 @@
-import { MeasPointSubject, MetricType } from "../graphql/types/graphql";
+import { MeasPointSubject, MetricFunc, MetricType } from "../graphql/types/graphql"
 
-export const names = {
+const types: Record<MetricType, string> = {
   [MetricType.Consumption] : 'Spotřeba',
   [MetricType.TimeElapsed] : 'Uplynulý čas'
+}
+
+export function getTypeLabel(type: MetricType): string {
+  return types[type]
+}
+
+const functions: Record<MetricFunc, string> = {
+  [MetricFunc.Inst] : 'Okamžitá hodnota',
+  [MetricFunc.Sum] : 'Souhrnně'
+}
+
+export function getFunctionLabel(func: MetricFunc): string {
+  return functions[func]
 }
 
 export type Unit = {

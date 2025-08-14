@@ -1,0 +1,5 @@
+mutation UpdateMeasPoint($data: UpdateMeasPoint!, $updateMeasPointId: ID!) {
+  updateMeasPoint(data: $data, id: $updateMeasPointId) {
+    ...MeasPointDetail   
+  }
+}

@@ -1,0 +1,5 @@
+mutation DisableAutoReadout($disableAutoReadoutId: ID!) {
+  disableAutoReadout(id: $disableAutoReadoutId) {
+    ...MeasPointDetail   
+  }
+}

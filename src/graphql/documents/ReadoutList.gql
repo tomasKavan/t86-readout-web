@@ -1,0 +1,21 @@
+fragment ReadoutList on Readout {
+  id
+  metric {
+    id
+  }
+  type
+  source
+  errCode
+  errDetail
+  meterUTCTimestamp
+  createdUTCTime
+}
+
+query Readouts($take: Int!, $skip: Int!, $metricIds: [Int!], $from: DateTimeISO, $to: DateTimeISO) {
+  readouts(take: $take, skip: $skip, metricIds: $metricIds, from: $from, to: $to) {
+    totalCount
+    items {
+      ...ReadoutList
+    }
+  }
+}

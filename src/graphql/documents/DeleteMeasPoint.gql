@@ -1,0 +1,3 @@
+mutation DeleteMeasPoint($deleteMeasPointId: ID!, $force: Boolean) {
+  deleteMeasPoint(id: $deleteMeasPointId, force: $force)
+}

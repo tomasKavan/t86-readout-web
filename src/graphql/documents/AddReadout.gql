@@ -1,0 +1,5 @@
+mutation AddReadout($data: AddReadout!) {
+  addReadout(data: $data) {
+    ...ReadoutList
+  }
+}

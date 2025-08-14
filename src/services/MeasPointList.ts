@@ -1,29 +1,25 @@
 import { computed } from 'vue'
 import { useQuery } from '@vue/apollo-composable'
 import { 
+  MeasPointListFragmentDoc,
   MeasPointsDocument, 
-  type MeasPointMplFragment 
+  type MeasPointListFragment 
 } from '../graphql/types/graphql'
+import { useFragment } from '../graphql/types'
 
 export function useMeasPointList() {
   const { result, loading, error, refetch } = useQuery(MeasPointsDocument)
 
-  const measPoints = computed<MeasPointMplFragment[]>((): MeasPointMplFragment[] => {
-    if (result.value && result.value.measPoints) {
-      return (result.value.measPoints ?? []) as MeasPointMplFragment[]
-    }
-    return []
+  const measPoints = computed<MeasPointListFragment[]>((): MeasPointListFragment[] => {
+    const masked = result.value?.measPoints ?? []
+    return masked.map(i => useFragment(MeasPointListFragmentDoc, i))
   })
 
-  const add = () => {
+  const enableAutoReadAll = () => {
 
   }
 
-  const enableAutoRead = () => {
-
-  }
-
-  const disableAutoRead = () => {
+  const disableAutoReadAll = () => {
 
   }
 
@@ -32,8 +28,7 @@ export function useMeasPointList() {
     loading,
     error,
     refetch,
-    add,
-    enableAutoRead,
-    disableAutoRead
+    enableAutoReadAll,
+    disableAutoReadAll
   }
 }

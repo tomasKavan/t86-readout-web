@@ -1,0 +1,3 @@
+mutation DeleteReadout($id: ID!) {
+  deleteReadout(id: $id)
+}

@@ -1,337 +1,403 @@
 <script setup lang="ts">
 
-import { computed, onMounted, ref, watch } from 'vue'
-import { usePageTitle } from '../composables/usePageTitle'
-import { useRoute } from 'vue-router'
+import { computed, onMounted, ref } from 'vue'
+import { usePageTitle } from '../composables/UsePageTitle'
+import { useRoute, useRouter } from 'vue-router'
 import MeasPointMetricList from '../components/panels/meas-point/MeasPointMetricList.vue'
 import MeasPointServiceEventList from '../components/panels/meas-point/MeasPointServiceEventList.vue'
 import MeasPointReadoutList from '../components/panels/meas-point/MeasPointReadoutList.vue'
 import MeasPointCorrectionList from '../components/panels/meas-point/MeasPointCorrectionList.vue'
-import { MBusReadoutErrCode, MeasPointSubject, MetricType, ReadoutSource, ServiceEventType } from '../graphql/types/graphql'
+import { 
+  type MeasPointDetailMetricFragment, 
+  MeasPointDetailMetricFragmentDoc,
+  type MeasPointDetailServiceEventFragment,
+  MeasPointDetailServiceEventFragmentDoc,
+  type AddMetric,
+  MetricType,
+  MetricFunc,
+  type ChangeMeter
+} from '../graphql/types/graphql'
+import { useMeasPointDetail, type SaveMeasPointParams } from '../services/MeasPointDetail'
+import { useFragment } from '../graphql/types'
+import { useConfirm, useToast } from 'primevue'
+import { getFunctionLabel, getTypeLabel } from '../utils/MetricTypeTransformers'
+
+const NEW_MEAS_POINT_KEY = '__new__'
+const TOAST_LIFE_MS = 2000
 
 const { setTitle } = usePageTitle()
 const { params } = useRoute()
+const router = useRouter()
+const { 
+  id, 
+  isNew, 
+  measPoint, 
+  save, 
+  enableAutoRead, 
+  disableAutoRead,
+  addMetric,
+  removeMetric,
+  changeMeter,
+  revertMeterChange
+} = useMeasPointDetail()
+const { add: toastAdd } = useToast()
+const confirm = useConfirm()
 
 onMounted(() => {
+  if (params.id === NEW_MEAS_POINT_KEY) {
+    setTitle(`Nové měřící místo`)
+    id.value = null
+    return
+  }
   setTitle(`Měřící místo: ${params.id}`)
+  id.value = params.id as string
 })
 
-type ServiceEvent = {
-  id: number,
-  type: ServiceEventType,
-  occuredUTCTime: Date,
-  oldMeterManufacturer?: string | null,
-  oldMeterType?: string | null,
-  oldMBusAddr?: number | null,
-  oldMBusSerial?: string | null,
-  correctionCnt: number,
-  createdUTCTime: Date
-}
+const saveAction = async (data: SaveMeasPointParams) => {
+  try {
+    const resp = await save(data)
 
-type Correction = {
-  id: number,
-  serviceEvent: {
-    id: number,
-    type: ServiceEventType,
-    occuredUTCTime: Date
-  },
-  value: number,
-  oldMeterEndValue: number | null,
-  newMeterStartValue: number | null,
-  oldMeterHasPhysicalDisplay: boolean | null
-  oldMeterMbusValueRecordId: number | null,
-  oldMeterMbusDecimalShift: number | null,
-  metric: {
-    id: number,
-    type: MetricType
+    if (isNew) {
+      toastAdd({ severity: 'success', summary: 'Měřící bod přidán', life: TOAST_LIFE_MS})
+      router.push(`/meas-points/${resp.id}`)
+      return
+    }
+    toastAdd({ severity: 'success', summary: 'Měřící bod změněn', life: TOAST_LIFE_MS})
+    
+  } catch (e) {
+    toastAdd({ 
+      severity: 'error', 
+      summary: 'Uložení měřícího bodu selhalo', 
+      detail: e?.toString() ?? 'Neznámá chyba', 
+      life: TOAST_LIFE_MS 
+    })
   }
 }
 
-type Readout = {
-  id: number,
-  createdUTCTime: Date,
-  meterUTCTimestamp: Date,
-  source: ReadoutSource,
-  value: number,
-  errorCode?: MBusReadoutErrCode,
-  errorDetails?: string,
-  metric: { id: number, type: MetricType }
+const enableAutoReadAction = async () => {
+  try {
+    await enableAutoRead()
+    toastAdd({ severity: 'success', summary: 'Automatický odečet zapnut', life: TOAST_LIFE_MS})
+  } catch (e){
+    toastAdd({ 
+      severity: 'error', 
+      summary: 'Zapnutí automatického odečtu selhalo', 
+      detail: e?.toString() ?? 'Neznámá chyba', 
+      life: TOAST_LIFE_MS 
+    })
+  }
 }
 
-type Metric = {
-  id: number,
-  type: MetricType,
-  func?: string,
-  hasPhysicalDisplay?: boolean,
-  mbusValueRecordId?: number | null,
-  mbusDecimalShift?: number | null,
-  readoutCnt: number,
-  correctionCnt: number,
-  createdUTCTime?: Date,
+const disableAutoReadAction = async () => {
+  try {
+    await disableAutoRead()
+    toastAdd({ severity: 'success', summary: 'Automatický odečet vypnut', life: TOAST_LIFE_MS})
+  } catch (e){
+    toastAdd({ 
+      severity: 'error', 
+      summary: 'Vypnutí automatického odečtu selhalo', 
+      detail: e?.toString() ?? 'Neznámá chyba', 
+      life: TOAST_LIFE_MS 
+    })
+  }
 }
 
-type MeasPoint = {
-  id?: string,
-  name?: string,
-  mbusAddr?: number | null,
-  mbusSerial?: string | null,
-  metricCnt?: number,
-  lastRead?: Date,
-  autoReadoutEnabled?: boolean,
-  subject: MeasPointSubject,
-  subjectSpec?: string | null,
-  roomNo?: string,
-  instDetails?: string,
-  notes?: string,
-  meterType?: string | null,
-  meterManufacturer?: string | null,
-  metrics: Metric[],
-  serviceEvents: ServiceEvent[]
-}
-
-const product = ref<MeasPoint>({
-  id: 'S.EL.01.01',
-  name: 'Elektřina Byt 1',
-  mbusAddr: 1,
-  mbusSerial: '2543781',
-  metricCnt: 1,
-  lastRead: new Date(),
-  autoReadoutEnabled: false,
-  subject: MeasPointSubject.Electricity,
-  subjectSpec: null,
-  roomNo: '0.0.3',
-  instDetails: 'v RSS',
-  notes: 'aaa',
-  meterManufacturer: 'INA',
-  meterType: 'PRO380-Mb',
-  metrics: [{
-    id: 1,
+function bootstrapAddMetricData(): AddMetric {
+  return {
     type: MetricType.Consumption,
-    func: 'sum',
-    hasPhysicalDisplay: true,
-    mbusValueRecordId: 0,
-    mbusDecimalShift: 1,
-    createdUTCTime: new Date(),
-    readoutCnt: 10,
-    correctionCnt: 0
-  }],
-  serviceEvents: [{
-    id: 10,
-    type: ServiceEventType.MeterReplacement,
-    occuredUTCTime: new Date(),
-    createdUTCTime: new Date(),
-    oldMeterManufacturer: 'AAA',
-    oldMeterType: 'PRO380-Mb',
-    oldMBusAddr: 5,
-    oldMBusSerial: '21080518',
-    correctionCnt: 1
-  }]
-})
+    func: MetricFunc.Sum,
+    mbusDecimalShift: undefined,
+    mbusValueRecordId: undefined,
+    hasPhysicalDisplay: true
+  }
+}
+const addMetricForm = ref<AddMetric | null>(null)
+const addMetricDialogVisible = computed<boolean>(() => !!addMetricForm.value)
 
+const initMetricAdd = () => {
+  addMetricForm.value = bootstrapAddMetricData()
+}
 
-const readoutsRaw: Readout[] = []
-for (let i = 0; i < 10000; i++) {
-  readoutsRaw.push({
-    id: i,
-    createdUTCTime: new Date(),
-    source: ReadoutSource.Mbus,
-    meterUTCTimestamp: new Date(),
-    value: 154 + i,
-    metric: { id: 1, type: MetricType.Consumption }
+const executeMetricAdd = async () => {
+  try {
+    if (!addMetricForm.value) throw new Error('Neznámá chyba - formulář pro novou metriku === null')
+
+    await addMetric(addMetricForm.value)
+    toastAdd({ severity: 'success', summary: 'Metrika přidána', life: TOAST_LIFE_MS})
+    cleanupMetricAdd()
+  } catch (e) {
+    toastAdd({ 
+      severity: 'error', 
+      summary: 'Uložení nové metriky selhalo', 
+      detail: e?.toString() ?? 'Neznámá chyba', 
+      life: TOAST_LIFE_MS 
+    })
+  }
+}
+
+const cleanupMetricAdd = () => addMetricForm.value = null
+
+const initMetricDelete = (id: string) => {
+  const masked = measPoint.value?.metrics ?? []
+  const metric = masked.map(i => useFragment(MeasPointDetailMetricFragmentDoc, i))
+  .find(i => i.id === id) 
+  if (!metric) {
+    toastAdd({ 
+      severity: 'error', 
+      summary: 'Odstranění metriky selhalo.', 
+      detail: 'Metrika nenalezena', 
+      life: TOAST_LIFE_MS 
+    })
+    return
+  }
+  confirm.require({
+    message: `Odstraní metriku typu ${ getTypeLabel(metric.type)}. Chcete pokračovat?`,
+    header: 'Odstranit metriku',
+    icon: 'pi pi-exclamation-triangle',
+    accept: () => executeMetricDelete(id, false)
   })
 }
-const readouts = ref<Readout[]>(readoutsRaw)
-const readoutsLoading = ref<boolean>(false)
 
-const corrections = ref<Correction[]>([{
-  id: 1,
-  serviceEvent: {
-    id: 1,
-    type: ServiceEventType.MeterReplacement,
+const executeMetricDelete = async (id: string, force: boolean = false) => {
+  try {
+    try {
+      await removeMetric(id, force)
+    } catch (e) {
+      const code = (e as any)?.graphQLErrors?.[0]?.extensions?. code as string | undefined
+      if (code === 'HAS_SOME_READOUTS' && !force /* to avoid cycles */) {
+        confirm.require({
+          message: 'Všechny odečty metriky budou také odstraněny. Chcete pokračovat?',
+          header: 'Odstranit odečety metriky',
+          icon: 'pi pi-exclamation-triangle',
+          accept: () => executeMetricDelete(id, true)
+        })
+        return
+      }
+      throw e
+    }
+    toastAdd({ severity: 'success', summary: 'Metrika odstraněna', life: TOAST_LIFE_MS})
+    cleanupMeteChange()
+  } catch (e) {
+    toastAdd({ 
+      severity: 'error', 
+      summary: 'Odstranění metriky selhalo', 
+      detail: e?.toString() ?? 'Neznámá chyba', 
+      life: TOAST_LIFE_MS 
+    })
+  }
+}
+
+function bootstrapChangeMeterData(): ChangeMeter {
+  return {
+    corrections: [],
+    comments: '',
+    mbusAddr: undefined,
+    mbusSerial: undefined,
+    meterManufacturer: undefined,
+    meterType: undefined,
     occuredUTCTime: new Date()
-  },
-  value: 564,
-  oldMeterEndValue: null,
-  newMeterStartValue: null,
-  oldMeterHasPhysicalDisplay: true,
-  oldMeterMbusValueRecordId: 2,
-  oldMeterMbusDecimalShift: 0,
-  metric: {
-    id: 1,
-    type: MetricType.Consumption
   }
+}
+const changeMeterForm = ref<ChangeMeter | null>(null)
+const changeMeterDialogVisible = computed<boolean>(() => !!changeMeterForm.value )
+
+const initMeterChange = () => {
+  changeMeterForm.value = bootstrapChangeMeterData()
+}
+
+const executeMeterChange = async (force: boolean = false) => {
+  try {
+    if (!changeMeterForm.value) throw new Error('Neznámá chyba - formulář změnu měřidla === null')
+
+    try {
+      await changeMeter(changeMeterForm.value, force)
+    } catch (e) {
+      const code = (e as any)?.graphQLErrors?.[0]?.extensions?. code as string | undefined
+      if (code === 'HAS_SOME_READOUTS' && !force /* to avoid cycles */) {
+        confirm.require({
+          message: 'Odečty novější než čas změny budou odstraněny. Chcete pokračovat?',
+          header: 'Odstranit novější odečet',
+          icon: 'pi pi-exclamation-triangle',
+          accept: () => executeMeterChange(true)
+        })
+        return
+      }
+      throw e
+    }
+    toastAdd({ severity: 'success', summary: 'Měřidlo vyměněno', life: TOAST_LIFE_MS})
+    cleanupMeteChange()
+  } catch (e) {
+    toastAdd({ 
+      severity: 'error', 
+      summary: 'Výměna měřidla selhala', 
+      detail: e?.toString() ?? 'Neznámá chyba', 
+      life: TOAST_LIFE_MS 
+    })
+  }
+}
+
+const cleanupMeteChange = () => changeMeterForm.value = null
+
+const initMeterChangeRevet = () => {
+  confirm.require({
+    message: 'Zneplatní poslední výměnu měřidla. Chcete pokračovat?',
+    header: 'Zneplatnit výměnu měřidla',
+    icon: 'pi pi-exclamation-triangle',
+    accept: () => executeMeterChangeRevert(false)
+  })
+}
+
+const executeMeterChangeRevert = async (force: boolean = false) => {
+  try {
+    if (!changeMeterForm.value) throw new Error('Neznámá chyba - formulář změnu měřidla === null')
+
+    try {
+      const masked = measPoint.value?.serviceEvents ?? []
+      const se = masked.map(i => useFragment(MeasPointDetailServiceEventFragmentDoc, i))
+      .reduce((a, i) => {
+        if (!a || a.occuredUTCTime.getTime() < i.occuredUTCTime.getTime()) return i
+        return a
+      }, null as MeasPointDetailServiceEventFragment | null)
+      if (!se) throw new Error('Nelze vrátit. Nenalezena žádná servisní událost')
+      await revertMeterChange(measPoint.value?.id as string, se.id, force)
+    } catch (e) {
+      const code = (e as any)?.graphQLErrors?.[0]?.extensions?. code as string | undefined
+      if (code === 'HAS_SOME_READOUTS' && !force /* to avoid cycles */) {
+        confirm.require({
+          message: 'Odečty novější než čas změny budou odstraněny. Chcete pokračovat?',
+          header: 'Odstranit novější odečet',
+          icon: 'pi pi-exclamation-triangle',
+          accept: () => executeMeterChangeRevert(true)
+        })
+        return
+      }
+      throw e
+    }
+    toastAdd({ severity: 'success', summary: 'Výměna měřidlo zneplatněna', life: TOAST_LIFE_MS})
+    cleanupMeteChange()
+  } catch (e) {
+    toastAdd({ 
+      severity: 'error', 
+      summary: 'Zneplatnění výměny měřidla selhala', 
+      detail: e?.toString() ?? 'Neznámá chyba', 
+      life: TOAST_LIFE_MS 
+    })
+  }
+}
+
+
+const uwpMetrics = computed<MeasPointDetailMetricFragment[]>(() => {
+  const masked = measPoint.value?.metrics ?? []
+  return masked.map(i => useFragment(MeasPointDetailMetricFragmentDoc, i))
+})
+
+const uwpServiceEvents = computed<MeasPointDetailServiceEventFragment[]>(() => {
+  const masked = measPoint.value?.serviceEvents ?? []
+  return masked.map(i => useFragment(MeasPointDetailServiceEventFragmentDoc, i))
+})
+
+const addMetricTypeOpts = computed<{ id: MetricType, label: string }[]>(() => {
+  const full = [{
+    id: MetricType.Consumption,
+    label: getTypeLabel(MetricType.Consumption)
+  }, {
+    id: MetricType.TimeElapsed,
+    label: getTypeLabel(MetricType.TimeElapsed)
+  }]
+  const masked = measPoint.value?.metrics ?? []
+  const metrics = masked.map(i => useFragment(MeasPointDetailMetricFragmentDoc, i))
+  return full.filter(i => !(metrics.find(b => b.id === i.id)))
+})
+
+const addMetricFuncOpts = ref<{ id: MetricFunc, label: string }[]>([{
+  id: MetricFunc.Inst,
+  label: getFunctionLabel(MetricFunc.Inst)
+}, {
+  id: MetricFunc.Sum,
+  label: getFunctionLabel(MetricFunc.Sum)
 }])
-const correctionsLoading = ref<boolean>(false)
-
-const readoutFilter = ref({
-  from: new Date(),
-  to: new Date(),
-  metricIds: [1]
-})
-watch(readoutFilter, () => {
-  console.log('readout filter changed')
-}, { deep: true })
-
-const correctionFilter = ref({
-  from: new Date(),
-  to: new Date(),
-  metricIds: [1],
-  serviceEventIds: [10]
-})
-watch(readoutFilter, () => {
-  console.log('correction filter changed')
-}, { deep: true })
-
-type SubjectOption = {
-  id: string,
-  label: string
-}
-const subjects: SubjectOption[] = [{
-    id: 'ele',
-    label: 'Elektřina'
-}, {
-    id: 'wat:hot',
-    label: 'Teplá voda'
-}, {
-    id: 'wat:cold',
-    label: 'Studená voda'
-}, {
-    id: 'hth',
-    label: 'Teplo'
-}, {
-    id: 'gas',
-    label: 'Plyn'
-}, {
-    id: 'env',
-    label: 'Prostředí'
-}, {
-    id: 'cln',
-    label: 'Úklid'
-}]
-
-const subjectOptsTranslator = computed<SubjectOption | null>({
-  get: (): SubjectOption | null => {
-    if (!product.value) return null
-    let id = product.value.subject + ':' + product.value.subjectSpec
-    if (!product.value.subjectSpec) id = product.value.subject ?? ''
-    return subjects.find(s => s.id === id) || null
-  },
-  set: (val?: SubjectOption | null) => {
-    if (!val) {
-      throw new Error('Subject must be set')
-    }
-    const spl = val.id.split(':')
-    product.value.subject = spl[0] as MeasPointSubject
-    if (spl.length !== 2) {
-      product.value.subjectSpec = null
-    } else {
-      product.value.subjectSpec = spl[1]
-    }
-  }
-})
-
-const loadReadoutsPage = (param: { first: number, last?: number, rows?: number}) => {
-  console.log(param)
-}
-
-const initReadoutAdd = () => {
-  console.log('add readout')
-}
-
-const initReadoutDelete = (id: number) => {
-  console.log(`delete readout ${id}`)
-}
 
 </script>
 
 <template>
-  <div class="flex flex-col gap-10">
-    <div class="flex flex-col gap-6">
-      <div class="grid grid-cols-12 gap-6">
-        <div class="flex flex-col gap-2 col-span-12 md:col-span-3">
-          <label for="id" class="font-medium text-surface-900 dark:text-surface-0">ID</label>
-          <InputText id="id" type="text" v-model="product.id" size="small" class="w-full" />
-        </div>
-        <div class="flex flex-col gap-2 col-span-12 md:col-span-9">
-          <label for="name" class="font-medium text-surface-900 dark:text-surface-0">Název</label>
-          <InputText id="name" type="text" v-model="product.name" size="small" class="w-full" />
-        </div>
+  <Toast></Toast>
+  <ConfirmDialog></ConfirmDialog>
+
+  <Dialog 
+    v-model:visible="addMetricDialogVisible" 
+    header="Nová metrika" 
+    :modal="true" 
+    :style="{ width: '32rem' }"
+  >
+    <div class="flex flex-col gap-3">
+      <div class="flex items-center gap-2">
+        <label class="w-36">Type</label>
+        <Select
+          v-if="addMetricForm"
+          v-model="addMetricForm.type"
+          :options="addMetricTypeOpts"
+          optionLabel="label"
+          optionValue="id"
+          placeholder="Zvolte metriku"
+          class="w-full"
+        />
       </div>
-      
-      <div class="grid grid-cols-12 gap-6">
-        <div class="flex flex-col gap-2 col-span-12 md:col-span-3">
-          <label for="subject" class="font-medium text-surface-900 dark:text-surface-0">Veličina</label>
-          <Select 
-            id="subject" 
-            v-model="subjectOptsTranslator" 
-            :options="subjects" 
-            option-label="label" 
-            placeholder="Vyberte veličinu" 
-            class="w-full"
-            size="small"
-          >
-            <template #option="{ option }">
-              <div class="flex items-center">
-                <div>{{ option.label }}</div>
-              </div>
-            </template>
-          </Select>
-        </div>
-        <div class="flex flex-col gap-2 col-span-12 md:col-span-2">
-          <label for="roomNo" class="font-medium text-surface-900 dark:text-surface-0">V místnosti</label>
-          <InputText id="roomNo" type="text" v-model="product.id" size="small" class="w-full" />
-        </div>
-        <div class="flex flex-col gap-2 col-span-12 md:col-span-7">
-          <label for="instDetail" class="font-medium text-surface-900 dark:text-surface-0">Detaily umístění</label>
-          <InputText id="instDetail" type="text" size="small" class="w-full" />
-        </div>
+      <div class="flex items-center gap-2">
+        <label class="w-36">Funkce</label>
+        <Select
+          v-if="addMetricForm"
+          v-model="addMetricForm.func"
+          :options="addMetricFuncOpts"
+          optionLabel="label"
+          optionValue="id"
+          placeholder="Zvolte funkci"
+          class="w-full"
+        />
       </div>
 
-      <div class="grid grid-cols-12 gap-6">
-        <div class="flex flex-col gap-2 col-span-12">
-          <label for="id" class="font-medium text-surface-900 dark:text-surface-0">Poznámky</label>
-          <Textarea id="id" type="text" v-model="product.notes" size="small" class="w-full" />
-        </div>
+      <div class="flex items-center gap-2">
+        <label class="w-36">Záznam</label>
+        <InputNumber 
+          v-if="addMetricForm" 
+          v-model="addMetricForm.mbusValueRecordId" 
+          class="w-full"
+        />
       </div>
 
-      <div class="grid grid-cols-12 gap-6">
-        <div class="flex flex-col gap-2 col-span-12">
-          <div class="flex flex-row justify-end">
-            <Button label="Zrušit" severity="danger" variant="outlined" class="w-32 mr-3" />
-            <Button label="Uložit" class="w-32" />
-          </div>
-        </div>
+      <div class="flex items-center gap-2">
+        <label class="w-36">Posun</label>
+        <InputNumber 
+          v-if="addMetricForm" 
+          v-model="addMetricForm.mbusDecimalShift" 
+          class="w-full" 
+        />
       </div>
 
-      <Panel header="MBus" class="mt-3">
-        <template #icons>
-          <div class="flex flex-row pr-5 h-full pt-2">
-            <label for="autoReadAll" class="font-medium text-surface-900 dark:text-surface-0 pr-4 pl-2">Automatické vyčítání</label>
-            <ToggleSwitch id="autoReadAll"></ToggleSwitch>
-          </div>
-        </template>
-        <div class="grid grid-cols-12 gap-6">
-          <div class="flex flex-col gap-2 col-span-4 md:col-span-2">
-            <label for="id" class="font-medium text-surface-900 dark:text-surface-0">Adresa</label>
-            <InputText id="id" type="text" disabled v-model="product.mbusAddr" size="small" class="w-full" />
-          </div>
-          <div class="flex flex-col gap-2 col-span-8 md:col-span-2">
-            <label for="name" class="font-medium text-surface-900 dark:text-surface-0">Seriové číslo</label>
-            <InputText id="name" type="text" disabled v-model="product.mbusSerial" size="small" class="w-full" />
-          </div>
-          <div class="flex flex-col gap-2 col-span-4 md:col-span-2">
-            <label for="name" class="font-medium text-surface-900 dark:text-surface-0">Výrobce</label>
-            <InputText id="name" type="text" disabled v-model="product.meterManufacturer" size="small" class="w-full" />
-          </div>
-          <div class="flex flex-col gap-2 col-span-8 md:col-span-6">
-            <label for="name" class="font-medium text-surface-900 dark:text-surface-0">Typ</label>
-            <InputText id="name" type="text" disabled v-model="product.meterType" size="small" class="w-full" />
-          </div>
-        </div>
-      </Panel>
+      <div class="flex items-center gap-2">
+        <label class="w-36">Fyzický displej</label>
+        <Checkbox 
+          v-if="addMetricForm" 
+          v-model="addMetricForm.hasPhysicalDisplay" 
+          class="w-full"
+        />
+      </div>
     </div>
 
-    <Tabs value="0">
+    <template #footer>
+      <Button label="Cancel" text @click="cleanupMetricAdd" />
+      <Button label="Create" @click="executeMetricAdd" />
+    </template>
+  </Dialog>
+
+  <div class="flex flex-col gap-10">
+    <MeasPointForm 
+      :data="measPoint"
+      @save="saveAction"
+      @eanbleAutoReadout="enableAutoReadAction"
+      @disableAutoReadout="disableAutoReadAction"
+    />
+
+    <Tabs v-if="measPoint" value="0">
       <TabList>
         <Tab value="0"><i class="pi pi-gauge pr-2"></i>Metriky</Tab>
         <Tab value="1"><i class="pi pi-pen-to-square pr-2"></i>Odečty</Tab>
@@ -340,31 +406,30 @@ const initReadoutDelete = (id: number) => {
       </TabList>
       <TabPanels>
         <TabPanel value="0">
-          <MeasPointMetricList :metrics="product.metrics" />
+          <MeasPointMetricList 
+            :metrics="uwpMetrics" 
+            @initMetricDelete="initMetricDelete"
+            @initMetricAdd="initMetricAdd"
+          />
         </TabPanel>
         <TabPanel value="1">
           <MeasPointReadoutList 
-            :metrics="product.metrics"
-            :readouts="readouts"
-            :readoutsCnt="readouts.length"
-            :loading="readoutsLoading"
-            :measPointSubject="product.subject"
-            @loadPage="loadReadoutsPage"
-            @initReadoutAdd="initReadoutAdd"
-            @initReadoutDelete="initReadoutDelete"
-            v-model:filter="readoutFilter" />
+            :metrics="uwpMetrics" 
+            :measPointSubject="measPoint.subject" 
+          />
         </TabPanel>
         <TabPanel value="2">
-          <MeasPointServiceEventList :serviceEvents="product.serviceEvents" />
+          <MeasPointServiceEventList 
+            :serviceEvents="uwpServiceEvents" 
+            @initServiceEventRevert="initMeterChangeRevet"
+            @initServiceEventAdd="initMeterChange"
+          />
         </TabPanel>
         <TabPanel value="3">
           <MeasPointCorrectionList 
-          :metrics="product.metrics"
-          :serviceEvents="product.serviceEvents"
-          :corrections="corrections"
-          :loading="correctionsLoading"
-          :measPointSubject="product.subject"
-          v-model:filter="correctionFilter"
+            :metrics="uwpMetrics"
+            :serviceEvents="uwpServiceEvents"
+            :measPointSubject="measPoint.subject"
           />
         </TabPanel>
       </TabPanels>

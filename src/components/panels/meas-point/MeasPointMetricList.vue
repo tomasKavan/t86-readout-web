@@ -1,29 +1,15 @@
 <script setup lang="ts">
+import { type MeasPointDetailMetricFragment } from '../../../graphql/types/graphql';
 import { mdmd } from '../../../utils/DateFormatter'
+import { getFunctionLabel, getTypeLabel } from '../../../utils/MetricTypeTransformers';
 
-const { metrics } = defineProps(['metrics'])
+const { metrics } = defineProps<{
+  metrics: MeasPointDetailMetricFragment[]
+}>()
 const emit = defineEmits<{
-  (e: 'navToMetricReadout', payload: number): void,
-  (e: 'navToMetricCorrection', payload: number): void,
-  (e: 'initMetricDelete', payload: number): void
+  (e: 'initMetricDelete', payload: string): void
   (e: 'initMetricAdd'): void
 }>()
-
-const metricTypes = [{
-  id: 'cons',
-  label: 'Spotřeba'
-}, {
-  id: 'tel',
-  label: 'Uběhlý čas'
-}]
-
-const metricFunc = [{
-  id: 'inst',
-  label: 'Okamžitá hodnota'
-}, {
-  id: 'sum',
-  label: 'Souhrnně'
-}]
 
 </script>
 
@@ -32,12 +18,12 @@ const metricFunc = [{
     <Column field="id" header="ID" :style="{ width: '2rem' }"></Column>
     <Column header="Typ" :style="{ width: '5rem' }">
       <template #body="{ data }">
-        {{ data.type ? metricTypes.find((i: any) => i.id === data.type)?.label : '' }}
+        {{ getTypeLabel(data.type) }}
       </template>
     </Column>
     <Column header="Funkce" :style="{ width: '5rem' }">
       <template #body="{ data }">
-        {{ data.func ? metricFunc.find((i: any) => i.id === data.func)?.label : '' }}
+        {{ getFunctionLabel(data.func) }}
       </template>
     </Column>
     <Column header="Záz/Pos" :style="{ width: '4rem' }">
@@ -68,8 +54,6 @@ const metricFunc = [{
       </template>
       <template #body="{ data }">
         <div class="flex flex-row justify-end w-full">
-          <i class="pi pi-pen-to-square text-primary cursor-pointer pr-2" @click="emit('navToMetricReadout', data.id)"></i>
-          <i class="pi pi-sort-alt text-primary cursor-pointer pr-4" @click="emit('navToMetricCorrection', data.id)"></i>
           <i class="pi pi-trash text-red-600 cursor-pointer pr-2" @click="emit('initMetricDelete', data.id)"></i>
         </div>
       </template>

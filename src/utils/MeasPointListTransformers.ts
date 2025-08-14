@@ -1,4 +1,4 @@
-import { type MeasPointMplFragment, MeasPointSubject, MeasPointSubjectSpecifier } from '../graphql/types/graphql'
+import { type MeasPointListFragment, MeasPointSubject, MeasPointSubjectSpecifier } from '../graphql/types/graphql'
 
 const groupPresets = {
   [MeasPointSubject.Electricity]: {
@@ -33,7 +33,7 @@ const groupPresets = {
   }
 } as const
 
-function getGroup(mp: MeasPointMplFragment): { icon: string, name: string } | undefined {
+function getGroup(mp: MeasPointListFragment): { icon: string, name: string } | undefined {
   const prSubj = groupPresets[mp.subject]
   if (prSubj) {
     if (mp.subjectSpec) {
@@ -43,18 +43,66 @@ function getGroup(mp: MeasPointMplFragment): { icon: string, name: string } | un
   return prSubj as { icon: string, name: string } | undefined
 }
 
+export type Opt = {
+  id: string,
+  subject: MeasPointSubject,
+  spec?: MeasPointSubjectSpecifier,
+  name: string,
+  icon: string
+}
+
 export function useMeasPointListGrouping() {
-  const groupIcon = (mp: MeasPointMplFragment): string => {
+  const groupIcon = (mp: MeasPointListFragment): string => {
     return getGroup(mp)?.icon ?? ''
   }
 
-  const groupLabel = (mp: MeasPointMplFragment): string => {
+  const groupLabel = (mp: MeasPointListFragment): string => {
     return getGroup(mp)?.name ?? ''
+  }
+
+  const buildOpt = (subj: MeasPointSubject, spec?: MeasPointSubjectSpecifier): Opt | undefined => {
+    const prSubj = groupPresets[subj]
+    if (prSubj) {
+      if (spec) {
+        const prSpec = (prSubj as any)[spec]
+        if (!prSpec) return 
+        return {
+          id: `${subj}:${spec}`,
+          subject: subj,
+          spec: spec,
+          name: (prSpec as any).name,
+          icon: (prSpec as any).icon
+        }
+      } else {
+        if (!(prSubj as any).name) return
+        return {
+          id: subj,
+          subject: subj,
+          spec: spec,
+          name: (prSubj as any).name,
+          icon: (prSubj as any).icon
+        }
+      }
+    }
+    return
+  }
+
+  const optList = (): Opt[] => {
+    return [
+      buildOpt(MeasPointSubject.Electricity) as Opt,
+      buildOpt(MeasPointSubject.Water, MeasPointSubjectSpecifier.Hot) as Opt,
+      buildOpt(MeasPointSubject.Water, MeasPointSubjectSpecifier.Cold) as Opt,
+      buildOpt(MeasPointSubject.Heat) as Opt,
+      buildOpt(MeasPointSubject.GasFuel) as Opt,
+      buildOpt(MeasPointSubject.Environment) as Opt,
+      buildOpt(MeasPointSubject.Cleaning) as Opt,
+    ]
   }
 
   return {
     groupIcon,
-    groupLabel
+    groupLabel,
+    optList
   }
 
 }

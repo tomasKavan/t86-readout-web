@@ -2,31 +2,27 @@
 import { ref } from 'vue'
 import MenuItem from './components/sidebar/MenuItem.vue'
 
-import { usePageTitle } from './composables/usePageTitle'
+import { usePageTitle } from './composables/UsePageTitle'
 
 const { title } = usePageTitle()
 
 const menu = ref([{
-  label: 'Stav',
-  icon: 'home',
-  path: '/'
-}, {
-  label: 'Měřidla',
-  icon: 'gauge',
-  path: '/meas-points'
+  label: 'Grafy',
+  icon: 'chart-bar',
+  path: '/graphs'
 }, {
   label: 'Odečíst',
   icon: 'pen-to-square',
   path: '/group-readout'
 }, {
-  label: 'Grafy',
-  icon: 'chart-bar',
-  path: '/graphs'
-}, {
   label: 'Export',
   icon: 'file-export',
   path: '/exports'
 }, {
+  label: 'Měřidla',
+  icon: 'gauge',
+  path: '/meas-points'
+},{
   label: 'MBus',
   icon: 'wave-pulse',
   path: '/mbus'

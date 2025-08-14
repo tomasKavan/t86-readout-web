@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 
-import { usePageTitle } from '../composables/usePageTitle'
+import { usePageTitle } from '../composables/UsePageTitle'
 import { mdmd } from '../utils/DateFormatter'
 import { useMeasPointList } from '../services/MeasPointList'
 import { useMeasPointListGrouping } from '../utils/MeasPointListTransformers'

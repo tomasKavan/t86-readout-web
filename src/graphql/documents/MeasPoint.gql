@@ -1,0 +1,67 @@
+fragment MeasPointDetailCorrection on Correction {
+  id
+  value
+  oldMeterEndValue
+  newMeterStartValue
+  oldMeterHasPhysicalDisplay
+  oldMeterMbusValueRecordId
+  oldMeterMbusDecimalShift
+  createdUTCTime
+  updatedUTCTime
+}
+
+fragment MeasPointDetailServiceEvent on ServiceEvent {
+  id
+  type
+  occuredUTCTime
+  corrections {
+    ...MeasPointDetailCorrection
+  }
+  oldMbusAddr
+  oldMbusSerial
+  oldMeterManufacturer
+  oldMeterType
+  comments
+  createdUTCTime
+  updatedUTCTime
+}
+
+fragment MeasPointDetailMetric on Metric {
+  id
+  type
+  func
+  hasPhysicalDisplay
+  mbusValueRecordId
+  mbusDecimalShift
+  createdUTCTime
+  updatedUTCTime
+}
+
+fragment MeasPointDetail on MeasPoint {
+  id
+  name
+  roomNo
+  instDetails
+  notes
+  subject
+  subjectSpec
+  mbusAddr
+  mbusSerial
+  meterManufacturer
+  meterType
+  autoReadoutEnabled
+  metrics {
+    ...MeasPointDetailMetric
+  }
+  serviceEvents {
+    ...MeasPointDetailServiceEvent
+  }
+  createdUTCTime
+  updatedUTCTime
+}
+
+query MeasPoint($measPointId: String!) {
+  measPoint(id: $measPointId) {
+    ...MeasPointDetail
+  }
+}

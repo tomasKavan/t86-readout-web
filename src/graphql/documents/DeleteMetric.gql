@@ -1,0 +1,3 @@
+mutation DeleteMetric($deleteMetricId: ID!, $force: Boolean!) {
+  deleteMetric(id: $deleteMetricId, force: $force)
+}
