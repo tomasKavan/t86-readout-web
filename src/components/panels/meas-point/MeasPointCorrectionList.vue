@@ -12,8 +12,8 @@ import { mdmd, mdnt } from '../../../utils/DateFormatter'
 import { useFragment } from '../../../graphql/types'
 
 export type Filter = {
-  metricIds: number[],
-  serviceEventIds: number[]
+  metricIds: string[],
+  serviceEventIds: string[]
 }
 
 type Opt = {
@@ -21,22 +21,30 @@ type Opt = {
   label: string
 }
 
-const filter = ref<Filter>({
-  metricIds: [],
-  serviceEventIds: []
-})
-
 const { serviceEvents, metrics, measPointSubject} = defineProps<{
   serviceEvents: MeasPointDetailServiceEventFragment[],
   metrics: MeasPointDetailMetricFragment[],
   measPointSubject: MeasPointSubject
 }>()
 
-const corrections = computed<MeasPointDetailCorrectionFragment[]>(() => {
-  let out: MeasPointDetailCorrectionFragment[] = []
+const filter = ref<Filter>({
+  metricIds: metrics?.map(m => m.id) ?? [],
+  serviceEventIds: serviceEvents?.map(se => se.id) ?? []
+})
+
+type Row = { 
+  correction: MeasPointDetailCorrectionFragment, 
+  serviceEvent: MeasPointDetailServiceEventFragment
+}
+const correctionRows = computed<Row[]>(() => {
+  let out: Row[] = []
   for (const se of serviceEvents) {
     const masked = se.corrections ?? []
-    out = [...out, ...masked.map(i => useFragment(MeasPointDetailCorrectionFragmentDoc, i))]
+    const all = masked.map(i => useFragment(MeasPointDetailCorrectionFragmentDoc, i))
+
+    out = [...out, ...all.map(a => {
+      return { serviceEvent: se, correction: a}
+    })]
   }
   return out
 })
@@ -102,25 +110,25 @@ const serviceEventOpts = computed<Opt[]>(() => {
 
   <div class="">
     <DataTable 
-      :value="corrections" 
+      :value="correctionRows" 
       size="small"
       scrollable
       scrollHeight="flex"
       dataKey="id"
     >
       <Column field="serviceEvent.id" header="Událost" :style="{ width: '6rem' }"></Column>
-      <Column field="metric.id" header="Metrika" :style="{ width: '6rem' }"></Column>
+      <Column field="correction.metric.id" header="Metrika" :style="{ width: '6rem' }"></Column>
       <Column header="Datum" :style="{ width: '11rem' }">
         <template #body="{ data }">
           {{  mdmd(data.serviceEvent.occuredUTCTime) }}
         </template>
       </Column>
-      <Column field="value" :style="{ textAlign: 'right', width: '8rem' }">
+      <Column field="correction.value" :style="{ textAlign: 'right', width: '8rem' }">
         <template #header>
           <div class="w-full font-semibold">Hodnota</div>
         </template>
         <template #body="{ data }">
-          {{ data.value }} {{ getUnit(measPointSubject, data.metric.type).abbr }}
+          {{ data.correction.value }} {{ getUnit(measPointSubject, data.correction.metric.type).abbr }}
         </template>
       </Column>
       <Column header="Detaily">

@@ -10,8 +10,16 @@ const config: CodegenConfig = {
     'src/graphql/types/': {
       preset: 'client',
       config: {
-        useTypeImports: true
-      }
+        useTypeImports: true,
+        scalars: {
+          Big: 'big.js#Big',
+          BigDecimal: 'big.js#Big',
+          Decimal: 'big.js#Big'
+        }
+      },
+    },
+    'src/graphql/schema-introspection.json': {
+      plugins: ['introspection']
     }
   },
   config: {

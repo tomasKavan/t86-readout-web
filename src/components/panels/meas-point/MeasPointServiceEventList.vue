@@ -38,8 +38,8 @@ const emit = defineEmits<{
     <Column :style="{ width: '1rem' }">
       <template #header>
         <div class="flex flex-row justify-end w-full">
-          <Button icon="pi pi-plus" variant="text" size="small" @click="emit('initServiceEventRevert')"></Button>
-          <Button icon="pi pi-plus" variant="text" size="small" @click="emit('initServiceEventAdd')"></Button>
+          <Button icon="pi pi-backward" severity="danger" variant="text" size="small" @click="emit('initServiceEventRevert')"></Button>
+          <Button icon="pi pi-asterisk" variant="text" size="small" @click="emit('initServiceEventAdd')"></Button>
         </div>
       </template>
       <template #body>

@@ -2,16 +2,18 @@ fragment ReadoutList on Readout {
   id
   metric {
     id
+    type
   }
   type
   source
+  value
   errCode
   errDetail
   meterUTCTimestamp
   createdUTCTime
 }
 
-query Readouts($take: Int!, $skip: Int!, $metricIds: [Int!], $from: DateTimeISO, $to: DateTimeISO) {
+query Readouts($take: Int!, $skip: Int!, $metricIds: [ID!], $from: DateTimeISO, $to: DateTimeISO) {
   readouts(take: $take, skip: $skip, metricIds: $metricIds, from: $from, to: $to) {
     totalCount
     items {

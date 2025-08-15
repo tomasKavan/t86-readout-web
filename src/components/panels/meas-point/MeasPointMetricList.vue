@@ -26,19 +26,24 @@ const emit = defineEmits<{
         {{ getFunctionLabel(data.func) }}
       </template>
     </Column>
-    <Column header="Záz/Pos" :style="{ width: '4rem' }">
+    <Column header="Záznam" :style="{ width: '4rem' }">
       <template #body="{ data }">
         <div v-if="data.mbusValueRecordId !== null">
-          {{ data.mbusValueRecordId }} | {{ data.mbusDecimalShift }}
+          {{ data.mbusValueRecordId }}
         </div>
         <div v-else>
           N/A
         </div>
       </template>
     </Column>
-    <Column header="# O/C" :style="{ width: '4rem' }">
+    <Column header="Posun" :style="{ width: '4rem' }">
       <template #body="{ data }">
-        {{ data.readoutCnt || 0 }} | {{ data.correctionCnt || 0 }}
+        <div v-if="data.mbusValueRecordId !== null">
+          {{ data.mbusDecimalShift }}
+        </div>
+        <div v-else>
+          N/A
+        </div>
       </template>
     </Column>
     <Column header="Vytvořeno" :style="{ width: '8rem' }">

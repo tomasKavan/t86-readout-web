@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { usePageTitle } from '../composables/usePageTitle'
+import { usePageTitle } from '../composables/UsePageTitle'
 import { useMBusQuery } from '../services/MBus'
 
 const { setTitle } = usePageTitle()

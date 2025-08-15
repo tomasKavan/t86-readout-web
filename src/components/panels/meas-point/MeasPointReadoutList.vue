@@ -1,13 +1,18 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { type AddReadout, type MeasPointDetailMetricFragment, type MeasPointSubject, type ReadoutSource } from '../../../graphql/types/graphql';
+import { computed, ref, watch } from 'vue';
+import { MetricType, type AddReadout, type MeasPointDetailMetricFragment, type MeasPointSubject, type ReadoutSource } from '../../../graphql/types/graphql';
 import { getUnit, getTypeLabel } from '../../../utils/MetricTypeTransformers';
 import { mdmd } from '../../../utils/DateFormatter';
 import { readoutSourceNames } from '../../../utils/ReadoutTransformers';
 import { useReadoutList } from '../../../services/ReadoutList';
 import { useConfirm, useToast } from 'primevue';
+import { useNumberFormat } from '../../../composables/UseNumberFormat';
+import Big from 'big.js';
+
+const bigNmr = useNumberFormat()
 
 const TOAST_LIFE_MS = 2000
+const DEFAULT_RANGE_MS = 60 * 60 * 1000
 
 type Opt = {
   id: string,
@@ -22,7 +27,7 @@ const toast = useToast()
 // -------------------
 // Component interface
 
-const { metrics, measPointSubject } = defineProps<{
+const props = defineProps<{
   metrics: MeasPointDetailMetricFragment[],
   measPointSubject: MeasPointSubject,
 }>()
@@ -30,25 +35,31 @@ const { metrics, measPointSubject } = defineProps<{
 // ---------------
 // GraphQL Service
 
-const { filters, page, readouts, totalCount, loading, addReadout, deleteReadout } = useReadoutList()
+const now = new Date()
+const init = {
+  from: new Date(now.getTime() - DEFAULT_RANGE_MS),
+  to: now,
+  metricIds: props.metrics?.map(m => m.id) ?? []
+}
+
+const { filters, page, readouts, totalCount, loading, addReadout, deleteReadout } = useReadoutList(init)
 
 // ---------------------
 // Add new Readout logic
 
-type AddReadoutForm = {
-  metricId: string | null,
-  timestampUTC: Date | null,
-  value: number
-}
-function bootstrapReadoutAddForm(): AddReadoutForm {
+function bootstrapReadoutAddForm(): AddReadout {
   return {
-    metricId: null,
-    timestampUTC: null,
-    value: 0
+    metricId: props.metrics[0]?.id ?? 0,
+    timestampUTC: new Date(),
+    value: new Big(0)
   }
 }
-const addReadoutForm = ref<AddReadoutForm | null>(null)
+const addReadoutForm = ref<AddReadout | null>(null)
 const addReadoutDialogVisible = computed<boolean>(() => !!addReadoutForm.value )
+const addFormValue = computed<number>({
+  get: () => addReadoutForm.value?.value.toNumber() ?? 0,
+  set: (v: number) => addReadoutForm.value ? addReadoutForm.value.value = new Big(v) : null
+})
 
 const initReadoutAdd = () => {
     addReadoutForm.value = bootstrapReadoutAddForm()
@@ -87,6 +98,8 @@ const initReadoutDelete = (id: string) => {
     message: 'Opravdu chcete odečet odstranit?',
     header: 'Odstranit odečet',
     icon: 'pi pi-exclamation-triangle',
+    acceptProps: { label: 'Odstranit', severity: 'danger', outlined: true },
+    rejectProps: { label: 'Zrušit' },
     accept: () => executeReadoutDelete(id)
   })
 }
@@ -108,8 +121,12 @@ const executeReadoutDelete = async (id: string) => {
 // --------------------------------
 // Filter & Table control variables
 
+watch(() => [props.metrics], () => {
+  filters.value.metricIds = props.metrics.map(m => m.id)
+})
+
 const metricOpts = computed<Opt[]>(() => {
-  return metrics.map(m => {
+  return props.metrics.map(m => {
     return { id: m.id, label: getTypeLabel(m.type) } as Opt
   })
 })
@@ -126,10 +143,11 @@ const rangeModel = computed<DatePicType>({
   } 
 })
 
-const metricIdsModel = computed<number[] | null>({
+const metricIdsModel = computed<string[] | null>({
   get: () => filters.value.metricIds,
   set: v => {
-    filters.value.metricIds = v ?? null
+    if (!v || !v.length) v = props.metrics.map(m => m.id)
+    filters.value.metricIds = v
   }
 })
 
@@ -146,21 +164,20 @@ const rowsModel = computed<number>({
 
 </script>
 
-<template>
-  <ConfirmDialog></ConfirmDialog>
-  
+<template>  
   <!-- Add new Readout Dialog -->
   <Dialog 
-    v-model:visible="addReadoutDialogVisible" 
+    :visible="addReadoutDialogVisible" 
+    @update:visible="(v) => !v && cancelReadoutAdd()"
     header="Nový odečet" 
     :modal="true" 
     :style="{ width: '32rem' }"
   >
-    <div class="flex flex-col gap-3">
+    <div class="flex flex-col gap-3" v-if="addReadoutForm">
       <div class="flex items-center gap-2">
-        <label class="w-36">Metrika</label>
+        <label class="w-48">Metrika</label>
         <Select
-          v-if="addReadoutForm"
+          size="small"
           v-model="addReadoutForm.metricId"
           :options="metricOpts"
           optionLabel="label"
@@ -172,11 +189,12 @@ const rowsModel = computed<number>({
       </div>
 
       <div class="flex items-center gap-2">
-        <label class="w-36">Meter time (UTC)</label>
+        <label class="w-48">Meter time (UTC)</label>
         <DatePicker 
-          v-if="addReadoutForm"
+          size="small"
           v-model="addReadoutForm.timestampUTC" 
-          showTime 
+          showTime
+          showSeconds 
           hourFormat="24" 
           showIcon 
           class="w-full" 
@@ -185,18 +203,20 @@ const rowsModel = computed<number>({
       </div>
 
       <div class="flex items-center gap-2">
-        <label class="w-36">Err code</label>
+        <label class="w-48">Hodnota</label>
         <InputNumber 
-          v-if="addReadoutForm" 
-          v-model="addReadoutForm.value" 
-          class="w-full" :disabled="loading" 
+          size="small"
+          v-model="addFormValue" 
+          class="w-full" 
+          :disabled="loading" 
+          :suffix="' ' + getUnit(measPointSubject, metrics.find(m => m.id === addReadoutForm?.metricId)?.type ?? MetricType.Consumption).abbr"
         />
       </div>
     </div>
 
     <template #footer>
-      <Button label="Cancel" text @click="cancelReadoutAdd" :disabled="loading" />
-      <Button label="Create" :loading="loading" @click="executeReadoutAdd" />
+      <Button size="small" label="Zrušit" text @click="cancelReadoutAdd" :disabled="loading" />
+      <Button size="small" label="Přidat" :loading="loading" @click="executeReadoutAdd" />
     </template>
   </Dialog>
 
@@ -258,11 +278,15 @@ const rowsModel = computed<number>({
     >
       <Column :style="{ width: '3rem' }">
         <template #body="{ data }">
-          <i v-if="data.errorCode" class="pi pi-exclamation-triangle text-red-600" />
+          <i v-if="data.errCode" class="pi pi-exclamation-triangle text-red-600" />
           <i v-else class="pi pi-check text-primary" />
         </template>
       </Column>
-      <Column field="metric.id" header="Metrika" :style="{ width: '7rem' }"></Column>
+      <Column field="metric.id" header="Metrika" :style="{ width: '9rem' }">
+        <template #body="{ data }">
+          {{ getTypeLabel(metrics?.find(m => m.id === data.metric.id)?.type ?? MetricType.Consumption) }}
+        </template>
+      </Column>
       <Column header="Datum" :style="{ width: '11rem' }">
         <template #body="{ data }">
           {{  mdmd(data.meterUTCTimestamp) }}
@@ -278,8 +302,8 @@ const rowsModel = computed<number>({
           <div class="w-full font-semibold">Hodnota</div>
         </template>
         <template #body="{ data }">
-          <span v-if="data.errorCode" v-tooltip.left="data.errorDetails">{{ data.errorCode }}</span>
-          <span v-else>{{ data.value }} {{ getUnit(measPointSubject, data.metric.type).abbr }}</span>
+          <span v-if="data.errCode" v-tooltip.left="data.errDetails">{{ data.errCode }}</span>
+          <span v-else>{{ bigNmr.fmtBig(data.value) }} {{ getUnit(measPointSubject, data.metric.type).abbr }}</span>
         </template>
       </Column>
       <Column :style="{ width: '2rem' }">

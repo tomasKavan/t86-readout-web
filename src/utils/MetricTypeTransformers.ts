@@ -33,10 +33,10 @@ const unknownUnit: Unit = {
 }
 
 const units: Unit[] = [{
-  id: 'kilowatthour',
-  name: 'kilowatthodina',
-  abbr: 'kWh',
-  richAbbr: 'kWh'
+  id: 'watthour',
+  name: 'watthodina',
+  abbr: 'Wh',
+  richAbbr: 'Wh'
 }, {
   id: 'cubicmeter',
   name: 'Metr krychlový',
@@ -59,7 +59,7 @@ type TypeDescriptor = Record<MeasPointSubject, MetricMap>
 
 const typeDescriptor: TypeDescriptor = {
   [MeasPointSubject.Electricity] : {
-    [MetricType.Consumption] : units.find(u => u.id === 'kilowatthour'),
+    [MetricType.Consumption] : units.find(u => u.id === 'watthour'),
   },
   [MeasPointSubject.Water] : {
     [MetricType.Consumption] : units.find(u => u.id === 'liter'),
@@ -68,7 +68,7 @@ const typeDescriptor: TypeDescriptor = {
     [MetricType.Consumption] : units.find(u => u.id === 'cubicmeter'),
   },
   [MeasPointSubject.Heat] : {
-    [MetricType.Consumption] : units.find(u => u.id === 'kilowatthour'),
+    [MetricType.Consumption] : units.find(u => u.id === 'watthour'),
   },
   [MeasPointSubject.Cleaning] : {
     [MetricType.TimeElapsed] : units.find(u => u.id === 'second'),

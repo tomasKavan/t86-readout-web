@@ -1,8 +1,8 @@
 <script setup lang="ts">
 
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { usePageTitle } from '../composables/UsePageTitle'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import MeasPointMetricList from '../components/panels/meas-point/MeasPointMetricList.vue'
 import MeasPointServiceEventList from '../components/panels/meas-point/MeasPointServiceEventList.vue'
 import MeasPointReadoutList from '../components/panels/meas-point/MeasPointReadoutList.vue'
@@ -15,22 +15,23 @@ import {
   type AddMetric,
   MetricType,
   MetricFunc,
-  type ChangeMeter
+  type ChangeMeter,
+  type UpdateMeasPoint
 } from '../graphql/types/graphql'
-import { useMeasPointDetail, type SaveMeasPointParams } from '../services/MeasPointDetail'
+import { useMeasPointDetail } from '../services/MeasPointDetail'
 import { useFragment } from '../graphql/types'
 import { useConfirm, useToast } from 'primevue'
 import { getFunctionLabel, getTypeLabel } from '../utils/MetricTypeTransformers'
+import NullableInput from '../components/NullableInput.vue'
+import MeasPointDetailForm from '../components/forms/MeasPointDetailForm.vue'
 
 const NEW_MEAS_POINT_KEY = '__new__'
 const TOAST_LIFE_MS = 2000
 
 const { setTitle } = usePageTitle()
 const { params } = useRoute()
-const router = useRouter()
 const { 
-  id, 
-  isNew, 
+  id,
   measPoint, 
   save, 
   enableAutoRead, 
@@ -43,27 +44,20 @@ const {
 const { add: toastAdd } = useToast()
 const confirm = useConfirm()
 
-onMounted(() => {
+const handlePageParamsUpdate = () => {
   if (params.id === NEW_MEAS_POINT_KEY) {
-    setTitle(`Nové měřící místo`)
-    id.value = null
-    return
+    throw new Error('URL path seems like new MeasPoint page. We shouldn\'t be here.')
   }
   setTitle(`Měřící místo: ${params.id}`)
   id.value = params.id as string
-})
+}
+onMounted(handlePageParamsUpdate)
+watch(() => params.id, handlePageParamsUpdate)
 
-const saveAction = async (data: SaveMeasPointParams) => {
+const saveAction = async (data: UpdateMeasPoint) => {
   try {
-    const resp = await save(data)
-
-    if (isNew) {
-      toastAdd({ severity: 'success', summary: 'Měřící bod přidán', life: TOAST_LIFE_MS})
-      router.push(`/meas-points/${resp.id}`)
-      return
-    }
+    await save(data)
     toastAdd({ severity: 'success', summary: 'Měřící bod změněn', life: TOAST_LIFE_MS})
-    
   } catch (e) {
     toastAdd({ 
       severity: 'error', 
@@ -115,7 +109,17 @@ const addMetricForm = ref<AddMetric | null>(null)
 const addMetricDialogVisible = computed<boolean>(() => !!addMetricForm.value)
 
 const initMetricAdd = () => {
+  if (!availableTypeOptions.value.length) {
+    toastAdd({ 
+      severity: 'warn', 
+      summary: 'Metriku nelze přidat', 
+      detail: 'Všechny dostupné metriky už jsou v tomto místě měřeny', 
+      life: TOAST_LIFE_MS 
+    })
+    return 
+  }
   addMetricForm.value = bootstrapAddMetricData()
+  addMetricForm.value.type = availableTypeOptions.value[0].id
 }
 
 const executeMetricAdd = async () => {
@@ -154,6 +158,8 @@ const initMetricDelete = (id: string) => {
     message: `Odstraní metriku typu ${ getTypeLabel(metric.type)}. Chcete pokračovat?`,
     header: 'Odstranit metriku',
     icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Zrušit' },
+    acceptProps: { label: 'Pokračovat', severity:'danger', outlined: true },
     accept: () => executeMetricDelete(id, false)
   })
 }
@@ -176,7 +182,6 @@ const executeMetricDelete = async (id: string, force: boolean = false) => {
       throw e
     }
     toastAdd({ severity: 'success', summary: 'Metrika odstraněna', life: TOAST_LIFE_MS})
-    cleanupMeteChange()
   } catch (e) {
     toastAdd({ 
       severity: 'error', 
@@ -296,7 +301,8 @@ const uwpServiceEvents = computed<MeasPointDetailServiceEventFragment[]>(() => {
   return masked.map(i => useFragment(MeasPointDetailServiceEventFragmentDoc, i))
 })
 
-const addMetricTypeOpts = computed<{ id: MetricType, label: string }[]>(() => {
+type TypeOpt = { id: MetricType, label: string }
+const addMetricTypeOpts = computed<TypeOpt[]>(() => {
   const full = [{
     id: MetricType.Consumption,
     label: getTypeLabel(MetricType.Consumption)
@@ -307,6 +313,13 @@ const addMetricTypeOpts = computed<{ id: MetricType, label: string }[]>(() => {
   const masked = measPoint.value?.metrics ?? []
   const metrics = masked.map(i => useFragment(MeasPointDetailMetricFragmentDoc, i))
   return full.filter(i => !(metrics.find(b => b.id === i.id)))
+})
+const availableTypeOptions = computed<TypeOpt[]>(() => {
+  return addMetricTypeOpts.value.filter(opt => {
+    const masked = measPoint.value?.metrics ?? []
+    const frgs = useFragment(MeasPointDetailMetricFragmentDoc, masked)
+    return !frgs.find(i => i.type === opt.id)
+  })
 })
 
 const addMetricFuncOpts = ref<{ id: MetricFunc, label: string }[]>([{
@@ -320,22 +333,20 @@ const addMetricFuncOpts = ref<{ id: MetricFunc, label: string }[]>([{
 </script>
 
 <template>
-  <Toast></Toast>
-  <ConfirmDialog></ConfirmDialog>
-
   <Dialog 
-    v-model:visible="addMetricDialogVisible" 
+    :visible="addMetricDialogVisible" 
+    @update:visible="(v) => !v && cleanupMetricAdd()"
     header="Nová metrika" 
     :modal="true" 
     :style="{ width: '32rem' }"
   >
-    <div class="flex flex-col gap-3">
+    <div class="flex flex-col gap-3" v-if="addMetricForm">
       <div class="flex items-center gap-2">
         <label class="w-36">Type</label>
         <Select
-          v-if="addMetricForm"
+          size="small"
           v-model="addMetricForm.type"
-          :options="addMetricTypeOpts"
+          :options="availableTypeOptions"
           optionLabel="label"
           optionValue="id"
           placeholder="Zvolte metriku"
@@ -345,7 +356,7 @@ const addMetricFuncOpts = ref<{ id: MetricFunc, label: string }[]>([{
       <div class="flex items-center gap-2">
         <label class="w-36">Funkce</label>
         <Select
-          v-if="addMetricForm"
+          size="small"
           v-model="addMetricForm.func"
           :options="addMetricFuncOpts"
           optionLabel="label"
@@ -357,43 +368,110 @@ const addMetricFuncOpts = ref<{ id: MetricFunc, label: string }[]>([{
 
       <div class="flex items-center gap-2">
         <label class="w-36">Záznam</label>
-        <InputNumber 
-          v-if="addMetricForm" 
-          v-model="addMetricForm.mbusValueRecordId" 
-          class="w-full"
-        />
+        <NullableInput id="typ" v-model="addMetricForm.mbusValueRecordId" :defaultValue="0" nullLabel="N/A">
+          <template #input="{ value, setValue, disabled }">
+            <InputNumber 
+              :min="0" 
+              :max="254"
+              size="small"
+              :modelValue="Number(value ?? 0)"
+              :disabled="disabled"
+              class="w-full"
+              @input="setValue(Number($event.value || 0))"
+            />
+          </template>
+        </NullableInput>
       </div>
 
       <div class="flex items-center gap-2">
         <label class="w-36">Posun</label>
-        <InputNumber 
-          v-if="addMetricForm" 
-          v-model="addMetricForm.mbusDecimalShift" 
-          class="w-full" 
-        />
+        <NullableInput id="typ" v-model="addMetricForm.mbusDecimalShift" :defaultValue="0" nullLabel="N/A">
+          <template #input="{ value, setValue, disabled }">
+            <InputNumber 
+              :min="-5" 
+              :max="6"
+              size="small"
+              :modelValue="Number(value ?? 0)"
+              :disabled="disabled"
+              class="w-full"
+              @input="setValue(Number($event.value || 0))"
+            />
+          </template>
+        </NullableInput>
       </div>
 
       <div class="flex items-center gap-2">
         <label class="w-36">Fyzický displej</label>
         <Checkbox 
-          v-if="addMetricForm" 
           v-model="addMetricForm.hasPhysicalDisplay" 
           class="w-full"
+          binary
         />
       </div>
     </div>
 
     <template #footer>
-      <Button label="Cancel" text @click="cleanupMetricAdd" />
-      <Button label="Create" @click="executeMetricAdd" />
+      <Button label="Zrušit" text @click="cleanupMetricAdd" />
+      <Button label="Potvrdit" @click="executeMetricAdd" />
+    </template>
+  </Dialog>
+
+  <Dialog 
+    v-model:visible="changeMeterDialogVisible" 
+    header="Výměna měřidla" 
+    :modal="true" 
+    :style="{ width: '32rem' }"
+  >
+    <div class="flex flex-col gap-3" v-if="changeMeterForm">
+      <div class="flex items-center gap-2">
+        <label for="occured" class="w-36">Datum a čas výměny</label>
+        <DatePicker 
+          id="occured"
+          dateFormat="dd.mm.yyyy" 
+          :showTime="true" 
+          v-model="changeMeterForm.occuredUTCTime" />
+      </div>
+      <div class="flex items-center gap-2">
+        <label for="manu" class="w-36">Výrobce měřidla</label>
+        <NullableInput id="manu" v-model="changeMeterForm.meterManufacturer" />
+      </div>
+      <div class="flex items-center gap-2">
+        <label for="typ" class="w-36">Typ měřidla</label>
+        <NullableInput id="typ" v-model="changeMeterForm.meterType" />
+      </div>
+      <div class="flex items-center gap-2">
+        <label for="typ" class="w-36">Seriové číslo</label>
+        <NullableInput id="typ" v-model="changeMeterForm.mbusSerial" />
+      </div>
+      <div class="flex items-center gap-2">
+        <label for="typ" class="w-36">MBus Adresa</label>
+        <NullableInput id="typ" v-model="changeMeterForm.mbusAddr">
+          <template #input="{ value, setValue, disabled }">
+            <InputNumber 
+              :modelValue="Number(value ?? 0)"
+              :disabled="disabled"
+              class="w-full"
+              @input="setValue(Number($event.value || 0))"
+            />
+          </template>
+        </NullableInput>
+      </div>
+      <div class="flex items-center gap-2">
+        <label for="typ" class="w-36">Poznámky</label>
+        <Textarea v-model="changeMeterForm.comments" />
+      </div>
+    </div>
+    <template #footer>
+      <Button label="Zrušit" text @click="cleanupMeteChange" />
+      <Button label="Potvrdit" @click="executeMeterChange(false)" />
     </template>
   </Dialog>
 
   <div class="flex flex-col gap-10">
-    <MeasPointForm 
+    <MeasPointDetailForm 
       :data="measPoint"
       @save="saveAction"
-      @eanbleAutoReadout="enableAutoReadAction"
+      @enableAutoReadout="enableAutoReadAction"
       @disableAutoReadout="disableAutoReadAction"
     />
 

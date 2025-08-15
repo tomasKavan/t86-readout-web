@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { usePageTitle } from '../composables/usePageTitle'
+import { usePageTitle } from '../composables/UsePageTitle'
 
 const { setTitle } = usePageTitle()
 
@@ -31,4 +31,6 @@ const occurence = ref<Date>(new Date())
       <Button size="small" label="Uložit" />
     </template>
   </Toolbar>
+
+  <h1>Zatím nedokončeno...</h1>
 </template>

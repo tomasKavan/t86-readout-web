@@ -80,6 +80,8 @@ const menu = ref([{
       </div>
 
       <div class="p-5 flex flex-col flex-auto">
+        <Toast></Toast>
+        <ConfirmDialog></ConfirmDialog>
         <Card>
           <template #content>
             <router-view></router-view>

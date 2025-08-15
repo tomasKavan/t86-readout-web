@@ -17,7 +17,7 @@ const DEFAULT_PAGE_SIZE = 20
 type MaybeDate = Date | null | undefined
 
 type Filters = {
-  metricIds: number[] | null
+  metricIds: string[] | null
   from: MaybeDate
   to: MaybeDate
 }

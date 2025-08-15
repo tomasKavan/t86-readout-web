@@ -5,30 +5,87 @@ import { usePageTitle } from '../composables/UsePageTitle'
 import { mdmd } from '../utils/DateFormatter'
 import { useMeasPointList } from '../services/MeasPointList'
 import { useMeasPointListGrouping } from '../utils/MeasPointListTransformers'
+import { useRouter } from 'vue-router'
+
+const TOAST_LIFE_MS = 2000
+
+const confirm = useConfirm()
+const toast = useToast()
+
+import { type MeasPointListFragment } from '../graphql/types/graphql'
+import { useConfirm, useToast } from 'primevue'
 
 const { setTitle } = usePageTitle()
+const { measPoints, deleteMeasPoint } = useMeasPointList()
+const router = useRouter()
 
 onMounted(() => { setTitle('Měřící místa') })
-
-const { measPoints } = useMeasPointList()
 
 const selMeasPoints = ref([])
 
 const { groupIcon, groupLabel } = useMeasPointListGrouping()
+
+const navToNewMeasPointPage = () => router.push('/meas-points/__new__')
+
+const rowSelected = (payload: any) => {
+  const frg = payload.data as MeasPointListFragment
+  router.push(`/meas-points/${frg.id}`)
+}
+
+const initMeasPointDelete = async (id: string) => {
+  confirm.require({
+    message: `Odstraní měřící bod ${ id }. Chcete pokračovat?`,
+    header: 'Odstranit měřící bod',
+    icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Zrušit' },
+    acceptProps: { label: 'Pokračovat', severity:'danger', outlined: true },
+    accept: () => executeMeasPointDelete(id, false)
+  })
+}
+
+const executeMeasPointDelete = async (id: string, force: boolean = false) => {
+  try {
+    try {
+      await deleteMeasPoint(id, force)
+    } catch (e) {
+      const code = (e as any)?.graphQLErrors?.[0]?.extensions?. code as string | undefined
+      if (code === 'HAS_SOME_READOUTS' && !force /* to avoid cycles */) {
+        confirm.require({
+          message: 'Všechny odečty měřícího bodu budou také odstraněny. Chcete pokračovat?',
+          header: 'Odstranit odečety měřícího bodu',
+          icon: 'pi pi-exclamation-triangle',
+          acceptProps: { label: 'Odstranit odečty', outlined: true, seveirty: 'danger' },
+          rejectProps: { label: 'Zrušit' },
+          accept: () => executeMeasPointDelete(id, true)
+        })
+        return
+      }
+      throw e
+    }
+    toast.add({ severity: 'success', summary: 'Metrika odstraněna', life: TOAST_LIFE_MS})
+  } catch (e) {
+    toast.add({ 
+      severity: 'error', 
+      summary: 'Odstranění měřícího bodu selhalo', 
+      detail: e?.toString() ?? 'Neznámá chyba', 
+      life: TOAST_LIFE_MS 
+    })
+  }
+}
 
 </script>
 
 <template>
   <div class="flex flex-row justify-between pb-8 gap-3">
     <div class="flex flex-row pr-5 h-full pt-2">
-      <ToggleSwitch id="autoReadAll">
+      <ToggleSwitch id="autoReadAll" disabled>
         <template #handle>
           <i class="pi pi-sync text-primary" style="font-size: 0.65rem;"></i>
         </template>
       </ToggleSwitch>
       <label for="autoReadAll" class="font-medium text-surface-900 dark:text-surface-0 pr-4 pl-2">Automatické vyčítání</label>
     </div>
-    <Button icon="pi pi-plus" size="small" />
+    <Button icon="pi pi-plus" size="small" @click="navToNewMeasPointPage" />
   </div>
 
   <DataTable 
@@ -40,6 +97,7 @@ const { groupIcon, groupLabel } = useMeasPointListGrouping()
     tableStyle="min-width: 50rem"
     dataKey="id"
     v-model:selection="selMeasPoints"
+    @rowClick="rowSelected"
   >
     <Column bodyClass="text-center" :style="{ width: '2rem' }">
       <template #body="{ data }">
@@ -65,10 +123,9 @@ const { groupIcon, groupLabel } = useMeasPointListGrouping()
     </Column>
     <Column header="" :style="{ width: '3rem' }">
       <template #body="{ data }">
-        <div class="flex justify-end items-center h-full">
-          <router-link :to="'/meas-points/' + data.id" class="cursor-pointer">
-            <i class="pi pi-chevron-right text-primary cursor-pointer"></i>
-          </router-link>
+        <div class="flex flex-row justify-end w-full">
+          <i class="pi pi-trash text-red-600 cursor-pointer pr-2" 
+            @click="$event.preventDefault(); $event.stopPropagation(); initMeasPointDelete(data.id)"></i>
         </div>
       </template>
     </Column>

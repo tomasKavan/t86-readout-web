@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
-import { usePageTitle } from '../composables/usePageTitle'
-import { type MeasPointMplFragment, MeasPointSubject, MetricType, SerieSampling, type MetricMplFragment, type SerieEntry } from '../graphql/types/graphql'
+import { usePageTitle } from '../composables/UsePageTitle'
+import { 
+  type MeasPointListFragment, 
+  MeasPointSubject, 
+  MetricType, 
+  SerieSampling, 
+  type MeasPointListMetricFragment, 
+  type SerieEntry 
+} from '../graphql/types/graphql'
 import { useMeasPointList } from '../services/MeasPointList'
 import { useSerie } from '../services/Serie'
 import { mdmd } from '../utils/DateFormatter'
@@ -12,7 +19,7 @@ onMounted(() => {
   setTitle('Grafy spotřeby')
 })
 
-const { serie, query, loading, error } = useSerie()
+const { serie, query } = useSerie()
 
 const serieEntries = computed(() => {
   if (!serie || !serie.value) return []
@@ -139,8 +146,8 @@ const isTimeRelevant = computed<boolean>(() => {
 const queryActive = ref<boolean>(false)
 
 type MeasPointOpt = {
-  metric: MetricMplFragment,
-  measPoint: MeasPointMplFragment,
+  metric: MeasPointListMetricFragment,
+  measPoint: MeasPointListFragment,
   label: string
 }
 
@@ -152,7 +159,7 @@ const filteredMeasPoints = computed<MeasPointOpt[]>(() => {
   let filtered: MeasPointOpt[] = []
   for (const mp of measPoints.value) {
     if (mp.subject !== subject.value) continue 
-    const m: MetricMplFragment = mp.metrics.find(m => (m as MetricMplFragment).type === metricType.value) as MetricMplFragment
+    const m: MeasPointListMetricFragment = mp.metrics.find(m => (m as MeasPointListMetricFragment).type === metricType.value) as MeasPointListMetricFragment
     if (!m) continue
     filtered.push({
       measPoint: mp,

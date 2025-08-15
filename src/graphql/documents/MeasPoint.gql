@@ -1,5 +1,9 @@
 fragment MeasPointDetailCorrection on Correction {
   id
+  metric {
+    id
+    type
+  }
   value
   oldMeterEndValue
   newMeterStartValue
