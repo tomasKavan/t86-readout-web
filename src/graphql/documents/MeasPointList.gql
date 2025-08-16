@@ -6,7 +6,6 @@ fragment MeasPointListMetric on Metric {
   mbusValueRecordId
   mbusDecimalShift
   createdUTCTime
-  updatedUTCTime
 }
 
 fragment MeasPointListServiceEvent on ServiceEvent {
@@ -19,7 +18,6 @@ fragment MeasPointListServiceEvent on ServiceEvent {
   oldMeterType
   comments
   createdUTCTime
-  updatedUTCTime
 }
 
 fragment MeasPointList on MeasPoint {

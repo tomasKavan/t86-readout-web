@@ -9,6 +9,14 @@ export function getTypeLabel(type: MetricType): string {
   return types[type]
 }
 
+export const fullTypeList = [{
+  id: MetricType.Consumption,
+  label: getTypeLabel(MetricType.Consumption)
+}, {
+  id: MetricType.TimeElapsed,
+  label: getTypeLabel(MetricType.TimeElapsed)
+}]
+
 const functions: Record<MetricFunc, string> = {
   [MetricFunc.Inst] : 'Okamžitá hodnota',
   [MetricFunc.Sum] : 'Souhrnně'

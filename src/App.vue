@@ -75,7 +75,7 @@ const menu = ref([{
             <i class="pi pi-bars text-xl! leading-none!" />
           </a>
 
-          <h1 class="mr-auto text-xl text-surface-700 dark:text-surface-100">{{ title }}</h1>
+          <h1 class="mr-auto text-2xl text-surface-600 dark:text-surface-100 font-semibold">{{ title }}</h1>
         </div>
       </div>
 

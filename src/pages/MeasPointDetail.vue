@@ -13,17 +13,16 @@ import {
   type MeasPointDetailServiceEventFragment,
   MeasPointDetailServiceEventFragmentDoc,
   type AddMetric,
-  MetricType,
-  MetricFunc,
   type ChangeMeter,
   type UpdateMeasPoint
 } from '../graphql/types/graphql'
 import { useMeasPointDetail } from '../services/MeasPointDetail'
 import { useFragment } from '../graphql/types'
 import { useConfirm, useToast } from 'primevue'
-import { getFunctionLabel, getTypeLabel } from '../utils/MetricTypeTransformers'
-import NullableInput from '../components/NullableInput.vue'
+import { fullTypeList, getTypeLabel } from '../utils/MetricTypeTransformers'
 import MeasPointDetailForm from '../components/forms/MeasPointDetailForm.vue'
+import MeasPointAddMetric from '../components/panels/meas-point/MeasPointAddMetric.vue'
+import MeasPointChangeMeter from '../components/panels/meas-point/MeasPointChangeMeter.vue'
 
 const NEW_MEAS_POINT_KEY = '__new__'
 const TOAST_LIFE_MS = 2000
@@ -96,20 +95,10 @@ const disableAutoReadAction = async () => {
   }
 }
 
-function bootstrapAddMetricData(): AddMetric {
-  return {
-    type: MetricType.Consumption,
-    func: MetricFunc.Sum,
-    mbusDecimalShift: undefined,
-    mbusValueRecordId: undefined,
-    hasPhysicalDisplay: true
-  }
-}
-const addMetricForm = ref<AddMetric | null>(null)
-const addMetricDialogVisible = computed<boolean>(() => !!addMetricForm.value)
+const addMetricDialogVisible = ref<boolean>(false)
 
 const initMetricAdd = () => {
-  if (!availableTypeOptions.value.length) {
+  if (fullTypeList.length <= uwpMetrics.value.length) {
     toastAdd({ 
       severity: 'warn', 
       summary: 'Metriku nelze přidat', 
@@ -118,15 +107,12 @@ const initMetricAdd = () => {
     })
     return 
   }
-  addMetricForm.value = bootstrapAddMetricData()
-  addMetricForm.value.type = availableTypeOptions.value[0].id
+  addMetricDialogVisible.value = true
 }
 
-const executeMetricAdd = async () => {
+const executeMetricAdd = async (data: AddMetric) => {
   try {
-    if (!addMetricForm.value) throw new Error('Neznámá chyba - formulář pro novou metriku === null')
-
-    await addMetric(addMetricForm.value)
+    await addMetric(data)
     toastAdd({ severity: 'success', summary: 'Metrika přidána', life: TOAST_LIFE_MS})
     cleanupMetricAdd()
   } catch (e) {
@@ -139,7 +125,7 @@ const executeMetricAdd = async () => {
   }
 }
 
-const cleanupMetricAdd = () => addMetricForm.value = null
+const cleanupMetricAdd = () => addMetricDialogVisible.value = false
 
 const initMetricDelete = (id: string) => {
   const masked = measPoint.value?.metrics ?? []
@@ -175,6 +161,8 @@ const executeMetricDelete = async (id: string, force: boolean = false) => {
           message: 'Všechny odečty metriky budou také odstraněny. Chcete pokračovat?',
           header: 'Odstranit odečety metriky',
           icon: 'pi pi-exclamation-triangle',
+          rejectProps: { label: 'Zrušit' },
+          acceptProps: { label: 'Pokračovat', severity:'danger', outlined: true },
           accept: () => executeMetricDelete(id, true)
         })
         return
@@ -192,30 +180,14 @@ const executeMetricDelete = async (id: string, force: boolean = false) => {
   }
 }
 
-function bootstrapChangeMeterData(): ChangeMeter {
-  return {
-    corrections: [],
-    comments: '',
-    mbusAddr: undefined,
-    mbusSerial: undefined,
-    meterManufacturer: undefined,
-    meterType: undefined,
-    occuredUTCTime: new Date()
-  }
-}
-const changeMeterForm = ref<ChangeMeter | null>(null)
-const changeMeterDialogVisible = computed<boolean>(() => !!changeMeterForm.value )
+const changeMeterDialogVisible = ref<boolean>(false)
 
-const initMeterChange = () => {
-  changeMeterForm.value = bootstrapChangeMeterData()
-}
+const initMeterChange = () => changeMeterDialogVisible.value = true
 
-const executeMeterChange = async (force: boolean = false) => {
+const executeMeterChange = async (data: ChangeMeter, force: boolean = false) => {
   try {
-    if (!changeMeterForm.value) throw new Error('Neznámá chyba - formulář změnu měřidla === null')
-
     try {
-      await changeMeter(changeMeterForm.value, force)
+      await changeMeter(data, force)
     } catch (e) {
       const code = (e as any)?.graphQLErrors?.[0]?.extensions?. code as string | undefined
       if (code === 'HAS_SOME_READOUTS' && !force /* to avoid cycles */) {
@@ -223,14 +195,16 @@ const executeMeterChange = async (force: boolean = false) => {
           message: 'Odečty novější než čas změny budou odstraněny. Chcete pokračovat?',
           header: 'Odstranit novější odečet',
           icon: 'pi pi-exclamation-triangle',
-          accept: () => executeMeterChange(true)
+          rejectProps: { label: 'Zrušit' },
+          acceptProps: { label: 'Pokračovat', severity:'danger', outlined: true },
+          accept: () => executeMeterChange(data, true)
         })
         return
       }
       throw e
     }
     toastAdd({ severity: 'success', summary: 'Měřidlo vyměněno', life: TOAST_LIFE_MS})
-    cleanupMeteChange()
+    cleanupMeterChange()
   } catch (e) {
     toastAdd({ 
       severity: 'error', 
@@ -241,26 +215,29 @@ const executeMeterChange = async (force: boolean = false) => {
   }
 }
 
-const cleanupMeteChange = () => changeMeterForm.value = null
+const cleanupMeterChange = () => changeMeterDialogVisible.value = false
 
 const initMeterChangeRevet = () => {
   confirm.require({
     message: 'Zneplatní poslední výměnu měřidla. Chcete pokračovat?',
     header: 'Zneplatnit výměnu měřidla',
     icon: 'pi pi-exclamation-triangle',
+    rejectProps: { label: 'Zrušit' },
+    acceptProps: { label: 'Pokračovat', severity:'danger', outlined: true },
     accept: () => executeMeterChangeRevert(false)
   })
 }
 
 const executeMeterChangeRevert = async (force: boolean = false) => {
   try {
-    if (!changeMeterForm.value) throw new Error('Neznámá chyba - formulář změnu měřidla === null')
-
     try {
       const masked = measPoint.value?.serviceEvents ?? []
       const se = masked.map(i => useFragment(MeasPointDetailServiceEventFragmentDoc, i))
       .reduce((a, i) => {
-        if (!a || a.occuredUTCTime.getTime() < i.occuredUTCTime.getTime()) return i
+        if (!a) return i
+        const da = typeof a.occuredUTCTime === 'string' ? new Date(a.occuredUTCTime) : a.occuredUTCTime
+        const ia = typeof i.occuredUTCTime === 'string' ? new Date(i.occuredUTCTime) : i.occuredUTCTime
+        if (da.getTime() < ia.getTime()) return i
         return a
       }, null as MeasPointDetailServiceEventFragment | null)
       if (!se) throw new Error('Nelze vrátit. Nenalezena žádná servisní událost')
@@ -272,6 +249,8 @@ const executeMeterChangeRevert = async (force: boolean = false) => {
           message: 'Odečty novější než čas změny budou odstraněny. Chcete pokračovat?',
           header: 'Odstranit novější odečet',
           icon: 'pi pi-exclamation-triangle',
+          rejectProps: { label: 'Zrušit' },
+          acceptProps: { label: 'Pokračovat', severity:'danger', outlined: true },
           accept: () => executeMeterChangeRevert(true)
         })
         return
@@ -279,7 +258,7 @@ const executeMeterChangeRevert = async (force: boolean = false) => {
       throw e
     }
     toastAdd({ severity: 'success', summary: 'Výměna měřidlo zneplatněna', life: TOAST_LIFE_MS})
-    cleanupMeteChange()
+    cleanupMeterChange()
   } catch (e) {
     toastAdd({ 
       severity: 'error', 
@@ -301,171 +280,22 @@ const uwpServiceEvents = computed<MeasPointDetailServiceEventFragment[]>(() => {
   return masked.map(i => useFragment(MeasPointDetailServiceEventFragmentDoc, i))
 })
 
-type TypeOpt = { id: MetricType, label: string }
-const addMetricTypeOpts = computed<TypeOpt[]>(() => {
-  const full = [{
-    id: MetricType.Consumption,
-    label: getTypeLabel(MetricType.Consumption)
-  }, {
-    id: MetricType.TimeElapsed,
-    label: getTypeLabel(MetricType.TimeElapsed)
-  }]
-  const masked = measPoint.value?.metrics ?? []
-  const metrics = masked.map(i => useFragment(MeasPointDetailMetricFragmentDoc, i))
-  return full.filter(i => !(metrics.find(b => b.id === i.id)))
-})
-const availableTypeOptions = computed<TypeOpt[]>(() => {
-  return addMetricTypeOpts.value.filter(opt => {
-    const masked = measPoint.value?.metrics ?? []
-    const frgs = useFragment(MeasPointDetailMetricFragmentDoc, masked)
-    return !frgs.find(i => i.type === opt.id)
-  })
-})
-
-const addMetricFuncOpts = ref<{ id: MetricFunc, label: string }[]>([{
-  id: MetricFunc.Inst,
-  label: getFunctionLabel(MetricFunc.Inst)
-}, {
-  id: MetricFunc.Sum,
-  label: getFunctionLabel(MetricFunc.Sum)
-}])
-
 </script>
 
 <template>
-  <Dialog 
-    :visible="addMetricDialogVisible" 
-    @update:visible="(v) => !v && cleanupMetricAdd()"
-    header="Nová metrika" 
-    :modal="true" 
-    :style="{ width: '32rem' }"
-  >
-    <div class="flex flex-col gap-3" v-if="addMetricForm">
-      <div class="flex items-center gap-2">
-        <label class="w-36">Type</label>
-        <Select
-          size="small"
-          v-model="addMetricForm.type"
-          :options="availableTypeOptions"
-          optionLabel="label"
-          optionValue="id"
-          placeholder="Zvolte metriku"
-          class="w-full"
-        />
-      </div>
-      <div class="flex items-center gap-2">
-        <label class="w-36">Funkce</label>
-        <Select
-          size="small"
-          v-model="addMetricForm.func"
-          :options="addMetricFuncOpts"
-          optionLabel="label"
-          optionValue="id"
-          placeholder="Zvolte funkci"
-          class="w-full"
-        />
-      </div>
+  <MeasPointAddMetric
+    :visible="addMetricDialogVisible"
+    :currentMetrics="uwpMetrics"
+    @hideMetricAdd="cleanupMetricAdd"
+    @executeMetricAdd="executeMetricAdd"
+  />
 
-      <div class="flex items-center gap-2">
-        <label class="w-36">Záznam</label>
-        <NullableInput id="typ" v-model="addMetricForm.mbusValueRecordId" :defaultValue="0" nullLabel="N/A">
-          <template #input="{ value, setValue, disabled }">
-            <InputNumber 
-              :min="0" 
-              :max="254"
-              size="small"
-              :modelValue="Number(value ?? 0)"
-              :disabled="disabled"
-              class="w-full"
-              @input="setValue(Number($event.value || 0))"
-            />
-          </template>
-        </NullableInput>
-      </div>
-
-      <div class="flex items-center gap-2">
-        <label class="w-36">Posun</label>
-        <NullableInput id="typ" v-model="addMetricForm.mbusDecimalShift" :defaultValue="0" nullLabel="N/A">
-          <template #input="{ value, setValue, disabled }">
-            <InputNumber 
-              :min="-5" 
-              :max="6"
-              size="small"
-              :modelValue="Number(value ?? 0)"
-              :disabled="disabled"
-              class="w-full"
-              @input="setValue(Number($event.value || 0))"
-            />
-          </template>
-        </NullableInput>
-      </div>
-
-      <div class="flex items-center gap-2">
-        <label class="w-36">Fyzický displej</label>
-        <Checkbox 
-          v-model="addMetricForm.hasPhysicalDisplay" 
-          class="w-full"
-          binary
-        />
-      </div>
-    </div>
-
-    <template #footer>
-      <Button label="Zrušit" text @click="cleanupMetricAdd" />
-      <Button label="Potvrdit" @click="executeMetricAdd" />
-    </template>
-  </Dialog>
-
-  <Dialog 
-    v-model:visible="changeMeterDialogVisible" 
-    header="Výměna měřidla" 
-    :modal="true" 
-    :style="{ width: '32rem' }"
-  >
-    <div class="flex flex-col gap-3" v-if="changeMeterForm">
-      <div class="flex items-center gap-2">
-        <label for="occured" class="w-36">Datum a čas výměny</label>
-        <DatePicker 
-          id="occured"
-          dateFormat="dd.mm.yyyy" 
-          :showTime="true" 
-          v-model="changeMeterForm.occuredUTCTime" />
-      </div>
-      <div class="flex items-center gap-2">
-        <label for="manu" class="w-36">Výrobce měřidla</label>
-        <NullableInput id="manu" v-model="changeMeterForm.meterManufacturer" />
-      </div>
-      <div class="flex items-center gap-2">
-        <label for="typ" class="w-36">Typ měřidla</label>
-        <NullableInput id="typ" v-model="changeMeterForm.meterType" />
-      </div>
-      <div class="flex items-center gap-2">
-        <label for="typ" class="w-36">Seriové číslo</label>
-        <NullableInput id="typ" v-model="changeMeterForm.mbusSerial" />
-      </div>
-      <div class="flex items-center gap-2">
-        <label for="typ" class="w-36">MBus Adresa</label>
-        <NullableInput id="typ" v-model="changeMeterForm.mbusAddr">
-          <template #input="{ value, setValue, disabled }">
-            <InputNumber 
-              :modelValue="Number(value ?? 0)"
-              :disabled="disabled"
-              class="w-full"
-              @input="setValue(Number($event.value || 0))"
-            />
-          </template>
-        </NullableInput>
-      </div>
-      <div class="flex items-center gap-2">
-        <label for="typ" class="w-36">Poznámky</label>
-        <Textarea v-model="changeMeterForm.comments" />
-      </div>
-    </div>
-    <template #footer>
-      <Button label="Zrušit" text @click="cleanupMeteChange" />
-      <Button label="Potvrdit" @click="executeMeterChange(false)" />
-    </template>
-  </Dialog>
+  <MeasPointChangeMeter
+    :visible="changeMeterDialogVisible"
+    :metrics="uwpMetrics"
+    @cancleMeterChange="cleanupMeterChange"
+    @executeMeterChange="executeMeterChange"
+  />
 
   <div class="flex flex-col gap-10">
     <MeasPointDetailForm 

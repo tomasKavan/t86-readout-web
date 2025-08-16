@@ -2,7 +2,7 @@ import { createApp, h } from 'vue'
 import PrimeVue from 'primevue/config'
 import Aura from '@primeuix/themes/aura'
 
-import { Button, Card, Checkbox, Column, ConfirmDialog, DataTable, DatePicker, Dialog, InputNumber, InputText, MultiSelect, Panel, Select, SelectButton, Tab, TabList, TabPanel, TabPanels, Tabs, Textarea, Toast, ToggleSwitch, Toolbar, Tooltip } from 'primevue'
+import { Accordion, AccordionContent, AccordionHeader, AccordionPanel, Button, Card, Checkbox, Column, ConfirmDialog, DataTable, DatePicker, Dialog, InputNumber, InputText, MultiSelect, Panel, Select, SelectButton, Tab, TabList, TabPanel, TabPanels, Tabs, Textarea, Toast, ToggleSwitch, Toolbar, Tooltip } from 'primevue'
 import Chart from 'primevue/chart'
 import StyleClass from 'primevue/styleclass'
 import ConfirmationService from 'primevue/confirmationservice'
@@ -65,6 +65,10 @@ app.component('Column', Column)
 app.component('Toolbar', Toolbar)
 app.component('InputNumber', InputNumber)
 app.component('Checkbox', Checkbox)
+app.component('Accordion', Accordion)
+app.component('AccordionPanel', AccordionPanel)
+app.component('AccordionHeader', AccordionHeader)
+app.component('AccordionContent', AccordionContent)
 
 app.directive('styleclass', StyleClass)
 app.directive('tooltip', Tooltip)

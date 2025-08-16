@@ -1,33 +1,56 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useConfirm, useToast } from 'primevue'
+import { useRouter } from 'vue-router'
 
 import { usePageTitle } from '../composables/UsePageTitle'
 import { mdmd } from '../utils/DateFormatter'
 import { useMeasPointList } from '../services/MeasPointList'
 import { useMeasPointListGrouping } from '../utils/MeasPointListTransformers'
-import { useRouter } from 'vue-router'
+import { type MeasPointListFragment } from '../graphql/types/graphql'
+
 
 const TOAST_LIFE_MS = 2000
 
 const confirm = useConfirm()
 const toast = useToast()
 
-import { type MeasPointListFragment } from '../graphql/types/graphql'
-import { useConfirm, useToast } from 'primevue'
-
+const router = useRouter()
 const { setTitle } = usePageTitle()
 const { measPoints, deleteMeasPoint } = useMeasPointList()
-const router = useRouter()
+const { groupIcon, groupLabel } = useMeasPointListGrouping()
+
+type WithGroupKey<T> = T & { groupKey: string }
+
+function makeGroupKey(a: unknown, b: unknown) {
+  // Use a separator that won't appear in normal text
+  const SEP = '\u001F'
+  return `${String(a ?? '')}${SEP}${String(b ?? '')}`
+}
+
+function addGroupKey<T, K1 extends keyof T, K2 extends keyof T>(
+  rows: readonly T[],
+  key1: K1,
+  key2: K2
+): WithGroupKey<T>[] {
+  return rows.map(r => ({
+    ...r,
+    groupKey: makeGroupKey(r[key1], r[key2])
+  }))
+}
 
 onMounted(() => { setTitle('Měřící místa') })
 
 const selMeasPoints = ref([])
 
-const { groupIcon, groupLabel } = useMeasPointListGrouping()
+const tableRows = computed<WithGroupKey<MeasPointListFragment>[]>(() =>
+  addGroupKey(measPoints.value ?? [], 'subject', 'subjectSpec')
+)
 
 const navToNewMeasPointPage = () => router.push('/meas-points/__new__')
 
 const rowSelected = (payload: any) => {
+  console.log(measPoints.value)
   const frg = payload.data as MeasPointListFragment
   router.push(`/meas-points/${frg.id}`)
 }
@@ -89,14 +112,16 @@ const executeMeasPointDelete = async (id: string, force: boolean = false) => {
   </div>
 
   <DataTable 
-    :value="measPoints" 
+    :value="tableRows" 
     rowGroupMode="subheader"
-    :groupRowsBy="['subject', 'subjectSpec']" 
+    groupRowsBy="groupKey"
+    sortMode="single" 
+    :sortField="'groupKey'"
+    :sortOrder="1"
     size="small" 
     stripedRows
     tableStyle="min-width: 50rem"
     dataKey="id"
-    v-model:selection="selMeasPoints"
     @rowClick="rowSelected"
   >
     <Column bodyClass="text-center" :style="{ width: '2rem' }">
